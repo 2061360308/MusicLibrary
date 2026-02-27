@@ -14,13 +14,13 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - { name: 'Windows-x64', os: windows-latest, arch: 'x64', preset: 'x64-windows-vcpkg-Release' }
-          - { name: 'Windows-x86', os: windows-latest, arch: 'x86', preset: 'x64-windows-vcpkg-Release' }
-          - { name: 'Windows-arm64', os: windows-latest, arch: 'arm64', preset: 'x64-windows-vcpkg-Release', cross: true }
-          - { name: 'Ubuntu-x64', os: ubuntu-latest, arch: 'x64', preset: 'linux-gcc-Release' }
-          - { name: 'Ubuntu-x86', os: ubuntu-latest, arch: 'x86', preset: 'linux-gcc-Release' }
-          - { name: 'Ubuntu-arm64', os: ubuntu-latest, arch: 'arm64', preset: 'linux-gcc-Release', cross: true }
-          - { name: 'macOS-arm64', os: macos-latest, arch: 'arm64', preset: 'macos-gcc-Release' }
+          - { name: 'Windows-x64', os: windows-latest, arch: 'x64', preset: 'x64-windows-vcpkg' }
+          - { name: 'Windows-x86', os: windows-latest, arch: 'x86', preset: 'x86-windows-vcpkg' }
+          - { name: 'Windows-arm64', os: windows-latest, arch: 'arm64', preset: 'arm64-windows-vcpkg', cross: true }
+          - { name: 'Ubuntu-x64', os: ubuntu-latest, arch: 'x64', preset: 'linux-x64-gcc' }
+          - { name: 'Ubuntu-x86', os: ubuntu-latest, arch: 'x86', preset: 'linux-x86-gcc' }
+          - { name: 'Ubuntu-arm64', os: ubuntu-latest, arch: 'arm64', preset: 'linux-arm64-gcc', cross: true }
+          - { name: 'macOS-arm64', os: macos-latest, arch: 'arm64', preset: 'macos-arm64-gcc' }
         build_type: [Release]
 
     steps:
@@ -68,15 +68,18 @@ jobs:
       - name: Configure CMake (Linux/macOS)
         if: runner.os != 'Windows'
         run: |
+          BUILD_DIR="build-${{ matrix.config.arch }}"
+          mkdir -p $BUILD_DIR
+
           if [ "${{ runner.os }}" = "macOS" ]; then
-            cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_C_FLAGS="-O2 -Wall" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+            cmake -B $BUILD_DIR -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_C_FLAGS="-O2 -Wall" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
           elif [ "${{ matrix.config.arch }}" = "x86" ]; then
-            cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_C_FLAGS=-m32 -DCMAKE_CXX_FLAGS=-m32
+            cmake -B $BUILD_DIR -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_C_FLAGS=-m32 -DCMAKE_CXX_FLAGS=-m32
           elif [ "${{ matrix.config.arch }}" = "arm64" ]; then
             sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-            cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++
+            cmake -B $BUILD_DIR -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++
           else
-            cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_C_FLAGS="-O2 -Wall" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+            cmake -B $BUILD_DIR -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_C_FLAGS="-O2 -Wall" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
           fi
 
       - name: Configure CMake (Windows)
@@ -85,19 +88,16 @@ jobs:
           VCPKG_ROOT: ${{ github.workspace }}/vcpkg
         shell: bash
         run: |
-          if [ "${{ matrix.config.arch }}" = "x86" ]; then
-            cmake -B build-${{ matrix.config.arch }} -G "Visual Studio 17 2022" -A Win32 -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x86-windows
-          elif [ "${{ matrix.config.arch }}" = "arm64" ]; then
-            cmake -B build-${{ matrix.config.arch }} -G "Visual Studio 17 2022" -A ARM64 -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=arm64-windows
-          else
-            cmake --preset x64-windows-vcpkg
-            cmake -B build-${{ matrix.config.arch }} -G "Visual Studio 17 2022" -A x64 -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows
-          fi
+          cmake --preset ${{ matrix.config.preset }}
 
-      - name: Build (Windows)
-        if: runner.os == 'Windows'
+      - name: Build
         run: |
-          cmake --build build-${{ matrix.config.arch }} --config ${{ matrix.build_type }} -- /m
+          BUILD_DIR="build-${{ matrix.config.arch }}"
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cmake --build $BUILD_DIR --config ${{ matrix.build_type }} -- /m
+          else
+            cmake --build $BUILD_DIR --config ${{ matrix.build_type }} -j$(nproc)
+          fi
 
       - name: Prepare artifacts
         shell: bash
@@ -114,7 +114,7 @@ jobs:
               cp $BUILD_DIR/Debug/kugou_music_api_static.lib $ARTIFACT_NAME/static/ 2>/dev/null || cp $BUILD_DIR/libkugou_music_api_static.lib $ARTIFACT_NAME/static/ 2>/dev/null || true
             fi
           else
-            cp build/libkugou_music_api_static.a $ARTIFACT_NAME/static/ 2>/dev/null || cp build/libkugou_music_api.a $ARTIFACT_NAME/static/ 2>/dev/null || true
+            cp $BUILD_DIR/libkugou_music_api_static.a $ARTIFACT_NAME/static/ 2>/dev/null || true
           fi
 
           # Copy shared library
@@ -127,9 +127,9 @@ jobs:
               cp $BUILD_DIR/Debug/kugou_music_api.lib $ARTIFACT_NAME/shared/ 2>/dev/null || cp $BUILD_DIR/libkugou_music_api.lib $ARTIFACT_NAME/shared/ 2>/dev/null || true
             fi
           elif [ "${{ runner.os }}" = "macOS" ]; then
-            cp build/libkugou_music_api.dylib $ARTIFACT_NAME/shared/ 2>/dev/null || true
+            cp $BUILD_DIR/libkugou_music_api.dylib $ARTIFACT_NAME/shared/ 2>/dev/null || true
           else
-            cp build/libkugou_music_api.so $ARTIFACT_NAME/shared/ 2>/dev/null || true
+            cp $BUILD_DIR/libkugou_music_api.so $ARTIFACT_NAME/shared/ 2>/dev/null || true
           fi
 
           # Copy headers
