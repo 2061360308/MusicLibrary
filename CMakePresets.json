@@ -1,0 +1,88 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "x64-windows-vcpkg",
+      "displayName": "x64-windows with vcpkg",
+      "description": "Configure using vcpkg toolchain and x64-windows triplet",
+      "generator": "Visual Studio 17 2022",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "CMAKE_CXX_FLAGS_RELEASE": "/O2",
+        "CMAKE_C_FLAGS_RELEASE": "/O2"
+      }
+    },
+    {
+      "name": "linux-gcc",
+      "displayName": "Linux with GCC",
+      "description": "Configure using GCC on Linux",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_FLAGS": "-O2 -Wall",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "linux-gcc-debug",
+      "displayName": "Linux with GCC (Debug)",
+      "description": "Configure using GCC on Linux (Debug)",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_FLAGS": "-g -Wall -Wextra",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "macos-gcc",
+      "displayName": "macOS with GCC/Clang",
+      "description": "Configure using GCC/Clang on macOS",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_FLAGS": "-O2 -Wall",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "x64-windows-vcpkg-Release",
+      "displayName": "Build Release (x64-windows, vcpkg)",
+      "configurePreset": "x64-windows-vcpkg",
+      "configuration": "Release"
+    },
+    {
+      "name": "x64-windows-vcpkg-Debug",
+      "displayName": "Build Debug (x64-windows, vcpkg)",
+      "configurePreset": "x64-windows-vcpkg",
+      "configuration": "Debug"
+    },
+    {
+      "name": "linux-gcc-Release",
+      "displayName": "Build Release (Linux, GCC)",
+      "configurePreset": "linux-gcc"
+    },
+    {
+      "name": "linux-gcc-Debug",
+      "displayName": "Build Debug (Linux, GCC)",
+      "configurePreset": "linux-gcc-debug"
+    },
+    {
+      "name": "macos-gcc-Release",
+      "displayName": "Build Release (macOS, GCC/Clang)",
+      "configurePreset": "macos-gcc"
+    }
+  ]
+}

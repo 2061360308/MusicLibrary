@@ -1,0 +1,177 @@
+name: Build Multi-Platform Libraries
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build ${{ matrix.config.name }} (${{ matrix.build_type }})
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - { name: 'Windows-x64', os: windows-latest, arch: 'x64', preset: 'x64-windows-vcpkg-Release' }
+          - { name: 'Windows-x86', os: windows-latest, arch: 'x86', preset: 'x64-windows-vcpkg-Release' }
+          - { name: 'Windows-arm64', os: windows-latest, arch: 'arm64', preset: 'x64-windows-vcpkg-Release', cross: true }
+          - { name: 'Ubuntu-x64', os: ubuntu-latest, arch: 'x64', preset: 'linux-gcc-Release' }
+          - { name: 'Ubuntu-x86', os: ubuntu-latest, arch: 'x86', preset: 'linux-gcc-Release' }
+          - { name: 'Ubuntu-arm64', os: ubuntu-latest, arch: 'arm64', preset: 'linux-gcc-Release', cross: true }
+          - { name: 'macOS-arm64', os: macos-latest, arch: 'arm64', preset: 'macos-gcc-Release' }
+        build_type: [Release]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies and bundle JS
+        run: |
+          pnpm install
+          npx webpack
+
+      - name: Setup CMake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: '3.21.x'
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libcurl4-openssl-dev gcc-multilib g++-multilib
+
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: |
+          echo "macOS自带 curl 和 pkg-config，无需安装"
+
+      - name: Install Windows dependencies (vcpkg)
+        if: runner.os == 'Windows'
+        run: |
+          git clone https://github.com/Microsoft/vcpkg.git
+          ./vcpkg/bootstrap-vcpkg.bat
+          ./vcpkg/vcpkg install --classic --recurse curl:x64-windows curl:x86-windows curl:arm64-windows || ./vcpkg/vcpkg install --classic --recurse curl:x64-windows curl:x86-windows curl:arm64-windows
+
+      - name: Configure CMake (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_C_FLAGS="-O2 -Wall" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+          elif [ "${{ matrix.config.arch }}" = "x86" ]; then
+            cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_C_FLAGS=-m32 -DCMAKE_CXX_FLAGS=-m32
+          elif [ "${{ matrix.config.arch }}" = "arm64" ]; then
+            sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+            cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++
+          else
+            cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_C_FLAGS="-O2 -Wall" -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+          fi
+
+      - name: Configure CMake (Windows)
+        if: runner.os == 'Windows'
+        env:
+          VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+        shell: bash
+        run: |
+          if [ "${{ matrix.config.arch }}" = "x86" ]; then
+            cmake -B build-${{ matrix.config.arch }} -G "Visual Studio 17 2022" -A Win32 -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x86-windows
+          elif [ "${{ matrix.config.arch }}" = "arm64" ]; then
+            cmake -B build-${{ matrix.config.arch }} -G "Visual Studio 17 2022" -A ARM64 -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=arm64-windows
+          else
+            cmake --preset x64-windows-vcpkg
+            cmake -B build-${{ matrix.config.arch }} -G "Visual Studio 17 2022" -A x64 -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows
+          fi
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cmake --build build-${{ matrix.config.arch }} --config ${{ matrix.build_type }} -- /m
+
+      - name: Prepare artifacts
+        shell: bash
+        run: |
+          ARTIFACT_NAME="kugou_music_api-${{ matrix.config.name }}-${{ matrix.build_type }}"
+          BUILD_DIR="${{ runner.os == 'Windows' && 'build-' + matrix.config.arch || 'build' }}"
+          mkdir -p $ARTIFACT_NAME/{static,shared,include}
+
+          # Copy static library
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            if [ "${{ matrix.build_type }}" = "Release" ]; then
+              cp $BUILD_DIR/Release/kugou_music_api_static.lib $ARTIFACT_NAME/static/ 2>/dev/null || cp $BUILD_DIR/libkugou_music_api_static.lib $ARTIFACT_NAME/static/ 2>/dev/null || true
+            else
+              cp $BUILD_DIR/Debug/kugou_music_api_static.lib $ARTIFACT_NAME/static/ 2>/dev/null || cp $BUILD_DIR/libkugou_music_api_static.lib $ARTIFACT_NAME/static/ 2>/dev/null || true
+            fi
+          else
+            cp build/libkugou_music_api_static.a $ARTIFACT_NAME/static/ 2>/dev/null || cp build/libkugou_music_api.a $ARTIFACT_NAME/static/ 2>/dev/null || true
+          fi
+
+          # Copy shared library
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            if [ "${{ matrix.build_type }}" = "Release" ]; then
+              cp $BUILD_DIR/Release/kugou_music_api.dll $ARTIFACT_NAME/shared/ 2>/dev/null || cp $BUILD_DIR/kugou_music_api.dll $ARTIFACT_NAME/shared/ 2>/dev/null || true
+              cp $BUILD_DIR/Release/kugou_music_api.lib $ARTIFACT_NAME/shared/ 2>/dev/null || cp $BUILD_DIR/libkugou_music_api.lib $ARTIFACT_NAME/shared/ 2>/dev/null || true
+            else
+              cp $BUILD_DIR/Debug/kugou_music_api.dll $ARTIFACT_NAME/shared/ 2>/dev/null || cp $BUILD_DIR/kugou_music_api.dll $ARTIFACT_NAME/shared/ 2>/dev/null || true
+              cp $BUILD_DIR/Debug/kugou_music_api.lib $ARTIFACT_NAME/shared/ 2>/dev/null || cp $BUILD_DIR/libkugou_music_api.lib $ARTIFACT_NAME/shared/ 2>/dev/null || true
+            fi
+          elif [ "${{ runner.os }}" = "macOS" ]; then
+            cp build/libkugou_music_api.dylib $ARTIFACT_NAME/shared/ 2>/dev/null || true
+          else
+            cp build/libkugou_music_api.so $ARTIFACT_NAME/shared/ 2>/dev/null || true
+          fi
+
+          # Copy headers
+          cp -r src/include/* $ARTIFACT_NAME/include/
+
+          # Create archive
+          cd $ARTIFACT_NAME
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            7z a ../$ARTIFACT_NAME.zip *
+          else
+            tar -czf ../$ARTIFACT_NAME.tar.gz *
+          fi
+          cd ..
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: kugou_music_api-${{ matrix.config.name }}-${{ matrix.build_type }}
+          path: |
+            kugou_music_api-${{ matrix.config.name }}-${{ matrix.build_type }}.zip
+            kugou_music_api-${{ matrix.config.name }}-${{ matrix.build_type }}.tar.gz
+          retention-days: 30
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/**/*.zip,artifacts/**/*.tar.gz
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

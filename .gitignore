@@ -1,0 +1,18 @@
+# vscode / Visual Studio 2022
+.vscode/
+.vs/
+
+# CMake build files
+build/
+
+# bundle
+bundle/
+
+# node
+node_modules/
+
+# pnpm
+.pnpm-store/
+
+# vcpkg
+vcpkg_installed/
