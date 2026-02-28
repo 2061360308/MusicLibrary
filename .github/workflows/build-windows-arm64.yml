@@ -1,4 +1,4 @@
-name: Build Windows Libraries
+name: Build Windows ARM64 Libraries
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-11-arm
 
     steps:
       - name: Checkout repository
@@ -25,6 +25,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          architecture: "arm64"
           cache: "pnpm"
 
       - name: Install dependencies
@@ -37,27 +38,22 @@ jobs:
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgDirectory: ${{ github.workspace }}/vcpkg
-      
-      - name: Debug environment
-        run: |
-          echo "VCPKG_ROOT=${{ github.workspace }}/vcpkg"
-          ls ${{ github.workspace }}
 
       - name: Configure CMake
-        run: cmake --preset windows-x64-vcpkg
+        run: cmake --preset windows-arm64-vcpkg
         env:
           VCPKG_ROOT: ${{ github.workspace }}/vcpkg
 
       - name: Build qjsc target
-        run: cmake --build --preset windows-x64-vcpkg-Release --target qjsc
+        run: cmake --build --preset windows-arm64-vcpkg-Release --target qjsc
 
       - name: Build main target
-        run: cmake --build --preset windows-x64-vcpkg-Release
+        run: cmake --build --preset windows-arm64-vcpkg-Release
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: windows-x64-release
+          name: windows-arm64-release
           path: |
-            build/windows/x64/windows-x64-vcpkg/Release/lib/**
-            build/windows/x64/windows-x64-vcpkg/Release/include/**
+            build/windows/arm64/windows-arm64-vcpkg/Release/lib/**
+            build/windows/arm64/windows-arm64-vcpkg/Release/include/**

@@ -41,7 +41,7 @@ KouGouMusicLibrary 提供了一个 C 语言接口，用于调用 KuGouMusicApi �
 int main(int argc, char **argv)
 {
 
-  
+
   ProcessEnv env = {
       .platform = "lite", //lite: 酷狗概念版, 默认为手机版留空字符串
       // 设备id(可选，建议固定 )
@@ -299,9 +299,9 @@ npx webpack
 使用 CMake 构建 C 库：
 
 ```bash
-cmake --preset x64-windows-vcpkg
-cmake --build --preset x64-windows-vcpkg-Release --target qjsc  # 手动构建qjsc依赖
-cmake --build --preset x64-windows-vcpkg-Release
+cmake --preset windows-x64-vcpkg
+cmake --build --preset windows-x64-vcpkg-Release --target qjsc  # 手动构建qjsc依赖
+cmake --build --preset windows-x64-vcpkg-Release
 ```
 
 ## 注意事项

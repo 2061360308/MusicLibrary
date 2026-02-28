@@ -1,4 +1,4 @@
-name: Build Windows Libraries
+name: Build Windows x86 Libraries
 
 on:
   push:
@@ -37,27 +37,28 @@ jobs:
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgDirectory: ${{ github.workspace }}/vcpkg
-      
-      - name: Debug environment
-        run: |
-          echo "VCPKG_ROOT=${{ github.workspace }}/vcpkg"
-          ls ${{ github.workspace }}
+          vcpkgTriplet: x86-windows
+
+      - name: Install vcpkg dependencies
+        run: vcpkg install --triplet x86-windows
+        env:
+          VCPKG_ROOT: ${{ github.workspace }}/vcpkg
 
       - name: Configure CMake
-        run: cmake --preset windows-x64-vcpkg
+        run: cmake --preset windows-x86-vcpkg
         env:
           VCPKG_ROOT: ${{ github.workspace }}/vcpkg
 
       - name: Build qjsc target
-        run: cmake --build --preset windows-x64-vcpkg-Release --target qjsc
+        run: cmake --build --preset windows-x86-vcpkg-Release --target qjsc
 
       - name: Build main target
-        run: cmake --build --preset windows-x64-vcpkg-Release
+        run: cmake --build --preset windows-x86-vcpkg-Release
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: windows-x64-release
+          name: windows-x86-release
           path: |
-            build/windows/x64/windows-x64-vcpkg/Release/lib/**
-            build/windows/x64/windows-x64-vcpkg/Release/include/**
+            build/windows/x86/windows-x86-vcpkg/Release/lib/**
+            build/windows/x86/windows-x86-vcpkg/Release/include/**

@@ -1,14 +1,23 @@
-#include "app.bundle.h"
+#ifdef _WIN32
+#define __declspec(dllexport)
+#endif
+
+// #include "tool.h"
 #include "quickjs-libc.h"
 #include "quickjs.h"
 #include <stdio.h>
 #include <inttypes.h>
 #include "tinycthread.h"
 #include "kugou_music_api.h"
+#include "js_bundle.h"
 
 #ifdef _WIN32
 #define strdup _strdup
 #endif
+
+// 存储编译后的字节码，方便多次创建上下文时直接加载执行
+uint32_t kugou_music_api_bundle_size = 0;
+uint8_t *kugou_music_api_bundle = NULL;
 
 // 声明在 http.c 中实现的模块初始化函数
 JSModuleDef *js_init_module_http(JSContext *ctx, const char *module_name);
@@ -31,7 +40,7 @@ CtxList ctxList = {
     0,
 };
 
-static ctxList_init()
+static void ctxList_init()
 {
   mtx_init(&ctxList.lock, mtx_plain);
 }
@@ -84,6 +93,87 @@ static void ctxList_destroyAll()
   mtx_destroy(&ctxList.lock);
 }
 
+// 从 js 代码编译为字节码并执行
+static void load_js_code(JSContext *ctx, const char *code)
+{
+  if (kugou_music_api_bundle == NULL || kugou_music_api_bundle_size == 0)
+  {
+    // 编译 kugou_music_api_bundle_code 为字节码
+    JSValue bytecode = JS_Eval(ctx, (const char *)kugou_music_api_bundle_code,
+                               strlen(kugou_music_api_bundle_code),
+                               "<kugou_music_api>",
+                               JS_EVAL_TYPE_GLOBAL | JS_EVAL_FLAG_COMPILE_ONLY);
+
+    if (JS_IsException(bytecode))
+    {
+      js_std_dump_error(ctx);
+      fprintf(stderr, "Error: Failed to compile kugou_music_api_bundle_code\n");
+      exit(1);
+    }
+
+    // 序列化字节码
+    size_t bytecode_size;
+    uint8_t *bytecode_buffer = JS_WriteObject(ctx, &bytecode_size, bytecode, JS_WRITE_OBJ_BYTECODE);
+    JS_FreeValue(ctx, bytecode);
+
+    if (!bytecode_buffer)
+    {
+      fprintf(stderr, "Error: Failed to serialize kugou_music_api_bundle_code\n");
+      exit(1);
+    }
+
+    // 写出字节码到 kugou_music_api_bundle
+    kugou_music_api_bundle = malloc(bytecode_size);
+    if (!kugou_music_api_bundle)
+    {
+      fprintf(stderr, "Error: Failed to allocate memory for kugou_music_api_bundle\n");
+      js_free(ctx, bytecode_buffer);
+      exit(1);
+    }
+    memcpy((void *)kugou_music_api_bundle, bytecode_buffer, bytecode_size);
+    kugou_music_api_bundle_size = bytecode_size;
+
+    js_free(ctx, bytecode_buffer);
+
+    // 执行字节码
+    JSValue result = JS_ReadObject(ctx, kugou_music_api_bundle, kugou_music_api_bundle_size, JS_READ_OBJ_BYTECODE);
+    if (JS_IsException(result))
+    {
+      js_std_dump_error(ctx);
+      printf("Error: Failed to execute kugou_music_api_bundle_code\n");
+    }
+    else
+    {
+      JSValue eval_result = JS_EvalFunction(ctx, result);
+      if (JS_IsException(eval_result))
+      {
+        js_std_dump_error(ctx);
+        printf("Error: Failed to evaluate kugou_music_api_bundle_code\n");
+      }
+      JS_FreeValue(ctx, eval_result);
+    }
+  }
+  else
+  {
+    // 直接执行已有的字节码
+    JSValue result = JS_ReadObject(ctx, kugou_music_api_bundle, kugou_music_api_bundle_size, JS_READ_OBJ_BYTECODE);
+    if (JS_IsException(result))
+    {
+      js_std_dump_error(ctx);
+      fprintf(stderr, "Error: Failed to execute kugou_music_api_bundle\n");
+      exit(1);
+    }
+
+    JSValue eval_result = JS_EvalFunction(ctx, result);
+    if (JS_IsException(eval_result))
+    {
+      js_std_dump_error(ctx);
+      fprintf(stderr, "Error: Failed to evaluate kugou_music_api_bundle\n");
+    }
+    JS_FreeValue(ctx, eval_result);
+  }
+}
+
 static JSContext *JS_GetContext(JSRuntime *rt)
 {
   JSContext *ctx = JS_NewContext(rt);
@@ -112,13 +202,14 @@ static JSContext *JS_GetContext(JSRuntime *rt)
   JSValue init_run = JS_EvalFunction(ctx, init_compile);
   JS_FreeValue(ctx, init_run);
 
-  js_std_eval_binary(ctx, qjsc_app_bundle, qjsc_app_bundle_size, 0);
+  load_js_code(ctx, kugou_music_api_bundle_code);
 
   const char *str3 = "globalThis.kuGouMusicApi = new KuGouMusicApi();\n";
-  // const char *str3 = "console.log(JSON.stringify(globalThis));\n";
+  // const char *str3 = "console.log(JSON.stringify(globalThis.KuGouMusicApi));console.log(JSON.stringify(Object.getOwnPropertyDescriptor(globalThis, 'KuGouMusicApi'))); // 查看属性描述符";
   JSValue r2 = JS_Eval(ctx, str3, strlen(str3), "<input>", JS_EVAL_TYPE_GLOBAL);
   if (JS_IsException(r2))
   {
+    printf("Error: Failed to initialize kuGouMusicApi\n");
     js_std_dump_error(ctx); // 打印 JS 错误，比如 KuGouMusicApi 未定义之类
   }
   JS_FreeValue(ctx, r2);
@@ -126,6 +217,7 @@ static JSContext *JS_GetContext(JSRuntime *rt)
   return ctx;
 }
 
+// 创建新上下文并返回
 JSContext *get_context()
 {
   return JS_GetContext(rt);
@@ -147,6 +239,7 @@ JSContext *init(ProcessEnv *env)
   return JS_GetContext(rt);
 };
 
+// 销毁上下文
 int destroy_context(JSContext *ctx)
 {
   ctxList_del(ctx);
@@ -158,7 +251,12 @@ int destroy()
 {
   js_std_free_handlers(rt);
   ctxList_destroyAll();
+  free(kugou_music_api_bundle);
   JS_FreeRuntime(rt);
+  free(globalEnv.platform);
+  free(globalEnv.KUGOU_API_GUID);
+  free(globalEnv.KUGOU_API_DEV);
+  free(globalEnv.KUGOU_API_MAC);
   return 0;
 };
 
@@ -171,7 +269,7 @@ char *toMallocString(const char *str)
   return result;
 }
 
-void registerEnv(JSContext *ctx, const char *platform, const char *guid, const char *dev, const char *mac)
+static void registerEnv(JSContext *ctx, const char *platform, const char *guid, const char *dev, const char *mac)
 {
   // 构建 JS 脚本，将值挂载到 globalThis.process.env
   char jsCode[1024];
@@ -186,7 +284,8 @@ void registerEnv(JSContext *ctx, const char *platform, const char *guid, const c
 
   JSValue result = JS_Eval(ctx, jsCode, strlen(jsCode), "<registerEnv>", JS_EVAL_TYPE_GLOBAL);
 
-  if (JS_IsException(result)) {
+  if (JS_IsException(result))
+  {
     js_std_dump_error(ctx); // 打印 JS 错误
   }
 
