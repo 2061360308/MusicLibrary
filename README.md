@@ -1,4 +1,33 @@
-# KouGouMusicLibrary
+# feature/multi-platform
+
+此分支用来将原来单酷狗平台支持改为可拓展的多平台支持
+
+quickJS JSRuntime，JSContext创建管理均由engine模块负责
+
+kugou 接口将只链接自己的js代码字符串，以及管理字符串的字节码创建销毁
+
+修改后预计大致使用思路入下
+
+```c
+#include "musicLib/engine"
+#include "musicLib/kugou"
+.// .. 需要使用的其他音乐平台头文件
+
+init_engine()
+
+JSContext kugou_ctx = kugou_init(&env)  // 自动加载kougou相关js包
+
+kugou_request()
+
+// ... 其他使用
+
+kugou_destroy()  // 让酷狗销毁内部编译的js字节码代码等
+
+destroy_engine()  // 销毁引擎（运行时等，上下文也会自动销毁）
+```
+
+修改后预计 engine.lib 大小保持在1Mb多
+kugou等平台的lib大小由打包后的js决定，动态链接engine库可以灵活导入
 
 [`KuGouMusicApi`](https://github.com/MakcRe/KuGouMusicApi)项目的 C 语言包装库，使用[`quilkjs-ng`](https://github.com/quickjs-ng/quickjs)引擎调用 Javascript。
 
