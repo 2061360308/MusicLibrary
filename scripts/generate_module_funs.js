@@ -60,15 +60,17 @@ function generateHeader(modules) {
     "} ProcessEnv;",
     "typedef struct JSContext JSContext;",
     "JSContext *init(ProcessEnv *env);",
+    "JSContext *init_simple();",
     "int destroy();",
     "JSContext *get_context();",
     "int destroy_context(JSContext *ctx);",
     "",
     "char *request(JSContext *ctx, const char *route, const char *cookies, const char *params, ProcessEnv *env);",
-    ...modules.map(
-      (m) =>
-        `char *${m.identifier}(JSContext *ctx, const char *cookies, const char *params, ProcessEnv *env);`
-    ),
+    "char *request_simple(JSContext *ctx, const char *route, const char *cookies, const char *params);",
+    ...modules.flatMap((m) => [
+      `char *${m.identifier}(JSContext *ctx, const char *cookies, const char *params, ProcessEnv *env);`,
+      `char *${m.identifier}_simple(JSContext *ctx, const char *cookies, const char *params);`,
+    ]),
     "",
     "#endif",
   ];
@@ -86,7 +88,15 @@ function generateImpl(modules) {
     "        return request(ctx, route, cookies, params, env);  \\",
     "    }",
     "",
-    ...modules.map((m) => `API_FUNC(${m.identifier}, "${m.route}")`),
+    "#define API_FUNC_NOENV(name, route)  \\",
+    "    char *name(JSContext *ctx, const char *cookies, const char *params) {  \\",
+    "        return request_simple(ctx, route, cookies, params);  \\",
+    "    }",
+    "",
+    ...modules.flatMap((m) => [
+      `API_FUNC(${m.identifier}, "${m.route}")`,
+      `API_FUNC_NOENV(${m.identifier}_simple, "${m.route}")`,
+    ]),
   ];
 
   return lines.join("\n");
@@ -97,16 +107,21 @@ function generateDef(modules) {
     "LIBRARY kugou_music_api",
     "EXPORTS",
     "    init",
+    "    init_simple",
     "    destroy",
     "    get_context",
     "    destroy_context",
     "    request",
-    ...modules.map((m) => `    ${m.identifier}`),
+    "    request_simple",
+    ...modules.flatMap((m) => [
+      `    ${m.identifier}`,
+      `    ${m.identifier}_simple`,
+    ]),
     "",
   ];
 
   return lines.join("\n");
-} 
+}
 
 function main() {
   console.log("Generating functions by modules...");

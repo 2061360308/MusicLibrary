@@ -53,6 +53,11 @@ int main(int argc, char **argv)
   };
 
   JSContext *ctx = init(&env);
+
+  // 你也可也调用 JSContext *ctx = init_sample(); 所有参数将为空
+  // init函数会自动创建context，
+  // 如果需要多个上下文如多线程使用，
+  // 可以手动调用 get_context() 为每个线程创建 独立context
   // JSContext *ctx2 = get_context(); 创建第二个上下文
 
   const char *cookies = "";
@@ -80,6 +85,18 @@ int main(int argc, char **argv)
 ### 可用方法列表
 
 以下是库中提供的所有方法：
+
+> **提示**：目前最新API还提供自动使用默认（init时初始化）的全局 ProcessEnv
+>
+> 1. 带 `ProcessEnv *env` 参数，可自定义环境变量。
+> 2. 不带 `env` 参数，使用默认环境（可传 NULL）。
+> 例如：
+> `char *request(JSContext *ctx, const char *route, const char *cookies, const char *params, ProcessEnv *env);`
+> `char *request_sample(JSContext *ctx, const char *route, const char *cookies, const char *params);`
+> `char *yueku_fm(JSContext *ctx, const char *cookies, const char *params, ProcessEnv *env);`
+> `char *yueku_fm_sample(JSContext *ctx, const char *cookies, const char *params);`
+>
+> 关于最新接口信息查阅[`kugou_music_api.h`](src/include/kugou_music_api.h)
 
 ```c
 char *request(JSContext *ctx, const char *route, const char *cookies, const char *params, ProcessEnv *env);

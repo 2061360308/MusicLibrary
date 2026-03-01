@@ -239,6 +239,12 @@ JSContext *init(ProcessEnv *env)
   return JS_GetContext(rt);
 };
 
+JSContext* init_simple()
+{
+    static ProcessEnv default_env = { NULL, NULL, NULL, NULL };
+    return init(&default_env);
+}
+
 // 销毁上下文
 int destroy_context(JSContext *ctx)
 {
@@ -299,8 +305,13 @@ char *request(JSContext *ctx,
               ProcessEnv *env)
 {
   // 在每次请求时更新环境变量
-  ProcessEnv *_env = env ? env : &globalEnv;
-  registerEnv(ctx, _env->platform, _env->KUGOU_API_GUID, _env->KUGOU_API_DEV, _env->KUGOU_API_MAC);
+    const char* platform = (env && env->platform) ? env->platform : globalEnv.platform;
+    const char* guid = (env && env->KUGOU_API_GUID) ? env->KUGOU_API_GUID : globalEnv.KUGOU_API_GUID;
+    const char* dev = (env && env->KUGOU_API_DEV) ? env->KUGOU_API_DEV : globalEnv.KUGOU_API_DEV;
+    const char* mac = (env && env->KUGOU_API_MAC) ? env->KUGOU_API_MAC : globalEnv.KUGOU_API_MAC;
+
+    // 调用 registerEnv
+    registerEnv(ctx, platform, guid, dev, mac);
 
   // 1. 取 kuGouMusicApi.route
   JSValue global_obj = JS_GetGlobalObject(ctx);
@@ -424,4 +435,13 @@ char *request(JSContext *ctx,
   }
 
   return result;
+}
+
+char* request_simple(JSContext* ctx,
+    const char* route,
+    const char* cookies,
+    const char* params)
+{
+    static ProcessEnv default_env = { NULL, NULL, NULL, NULL };
+    return request(ctx, route, cookies, params, &default_env);
 }
