@@ -1,0 +1,140 @@
+name: Build Windows Libraries and Create Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, windows-11-arm]
+        architecture: [x64, x86, arm64]
+        exclude:
+          - os: windows-latest
+            architecture: arm64
+          - os: windows-11-arm
+            architecture: x86
+          - os: windows-11-arm
+            architecture: x64
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          architecture: ${{ matrix.architecture }}
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build JavaScript bundle
+        run: npx webpack
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgDirectory: ${{ github.workspace }}/vcpkg
+
+      - name: Install vcpkg dependencies
+        if: matrix.architecture == 'x86'
+        run: vcpkg install --triplet x86-windows
+        env:
+          VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+
+      - name: Debug environment
+        run: |
+          echo "VCPKG_ROOT=${{ github.workspace }}/vcpkg"
+          ls ${{ github.workspace }}
+
+      - name: Configure CMake
+        run: cmake --preset windows-${{ matrix.architecture }}-vcpkg
+        env:
+          VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+
+      - name: Build qjsc target
+        run: cmake --build --preset windows-${{ matrix.architecture }}-vcpkg-Release --target qjsc
+
+      - name: Build main target
+        run: cmake --build --preset windows-${{ matrix.architecture }}-vcpkg-Release
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ matrix.architecture }}-release
+          path: |
+            build/windows/${{ matrix.architecture }}/windows-${{ matrix.architecture }}-vcpkg/Release/lib/**
+            build/windows/${{ matrix.architecture }}/windows-${{ matrix.architecture }}-vcpkg/Release/include/*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    steps:
+      - name: Download x64 artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-x64-release
+          path: artifacts/x64
+
+      - name: Download x86 artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-x86-release
+          path: artifacts/x86
+
+      - name: Download arm64 artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-arm64-release
+          path: artifacts/arm64
+
+      - name: Zip x64 artifacts
+        run: cd artifacts/x64 && zip -r ../windows-x64.zip ./*
+
+      - name: Zip x86 artifacts
+        run: cd artifacts/x86 && zip -r ../windows-x86.zip ./*
+
+      - name: Zip arm64 artifacts
+        run: cd artifacts/arm64 && zip -r ../windows-arm64.zip ./*
+
+      - name: Generate release body
+        run: |
+          cat << 'EOF' > release_body.md
+          ## Windows Libraries
+
+          Pre-built libraries for Windows platforms:
+
+          | Platform | Description |
+          |----------|-------------|
+          | windows-x64 | 64-bit Windows (Windows 10/11 x64) |
+          | windows-x86 | 32-bit Windows (Windows 10/11 x86) |
+          | windows-arm64 | Windows on ARM (Windows 11 ARM) |
+
+          Each platform zip contains:
+          - `lib/` - Compiled library files (.lib, .dll)
+          - `include/` - Header files
+          EOF
+          cat release_body.md
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/*.zip
+          body_path: release_body.md
+          generate_release_notes: true

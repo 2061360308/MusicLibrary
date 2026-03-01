@@ -37,7 +37,6 @@ jobs:
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgDirectory: ${{ github.workspace }}/vcpkg
-          vcpkgTriplet: x86-windows
 
       - name: Install vcpkg dependencies
         run: vcpkg install --triplet x86-windows
