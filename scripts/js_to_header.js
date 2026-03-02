@@ -3,7 +3,7 @@ const path = require("path");
 
 const jsDir = path.join(__dirname, "..", "bundle", "js");
 const outputDir = path.join(__dirname, "..", "bundle", "c");
-const headerOutputDir = path.join(__dirname, "..", "src", "include");
+// const headerOutputDir = path.join(__dirname, "..", "src", "include");
 
 function main() {
   console.log("Generating C headers from JavaScript files...");
@@ -18,11 +18,11 @@ function main() {
 
   const files = fs.readdirSync(jsDir);
 
-  const headerLines = [];
+  // const headerLines = [];
 
-  headerLines.push("#ifndef JS_BUNDLE_H");
-  headerLines.push("#define JS_BUNDLE_H");
-  headerLines.push("");
+  // headerLines.push("#ifndef JS_BUNDLE_H");
+  // headerLines.push("#define JS_BUNDLE_H");
+  // headerLines.push("");
 
   for (const file of files) {
     if (!file.endsWith(".js")) continue;
@@ -55,18 +55,18 @@ function main() {
     fs.writeFileSync(cPath, header, "utf-8");
 
     // headerLines.push(`#include "${baseName}.c"`);
-    const size = Buffer.byteLength(jsContent, "utf-8"); // 计算文件内容的字节大小
-    headerLines.push(`extern const char ${baseName}_code[${size}];`);
+    // const size = Buffer.byteLength(jsContent, "utf-8"); // 计算文件内容的字节大小
+    // headerLines.push(`extern const char ${baseName}_code[${size}];`);
 
     console.log(`Generated: ${cPath}`);
   }
 
-  headerLines.push("");
-  headerLines.push("#endif // JS_BUNDLE_H");
+  // headerLines.push("");
+  // headerLines.push("#endif // JS_BUNDLE_H");
 
-  const headerPath = path.join(headerOutputDir, "js_bundle.h");
-  fs.writeFileSync(headerPath, headerLines.join("\n"), "utf-8");
-  console.log(`Generated: ${headerPath}`);
+  // const headerPath = path.join(headerOutputDir, "js_bundle.h");
+  // fs.writeFileSync(headerPath, headerLines.join("\n"), "utf-8");
+  // console.log(`Generated: ${headerPath}`);
 }
 
 module.exports = main;

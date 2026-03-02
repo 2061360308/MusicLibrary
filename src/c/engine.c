@@ -8,13 +8,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include "tinycthread.h"
-#include "kugou_music_api.h"
-#include "js_bundle.h"
 #include "engine.h"
-
-#ifdef _WIN32
-#define strdup _strdup
-#endif
 
 // 声明在 http.c 中实现的模块初始化函数
 JSModuleDef *js_init_module_http(JSContext *ctx, const char *module_name);
@@ -179,7 +173,6 @@ int eval_js(JSContext *ctx, char *code)
     JSValue r2 = JS_Eval(ctx, code, strlen(code), "<input>", JS_EVAL_TYPE_GLOBAL);
     if (JS_IsException(r2))
     {
-        printf("Error: Failed to evaluate JS code\n");
         js_std_dump_error(ctx); // 打印 JS 错误，比如 KuGouMusicApi 未定义之类
         JS_FreeValue(ctx, r2);
         return 1;
@@ -215,17 +208,7 @@ static JSContext *JS_GetContext(JSRuntime *rt)
     js_module_set_import_meta(ctx, init_compile, 1, 1);
     JSValue init_run = JS_EvalFunction(ctx, init_compile);
     JS_FreeValue(ctx, init_run);
-
-    // const char *str3 = "globalThis.kuGouMusicApi = new KuGouMusicApi();\n";
-    // // const char *str3 = "console.log(JSON.stringify(globalThis.KuGouMusicApi));console.log(JSON.stringify(Object.getOwnPropertyDescriptor(globalThis, 'KuGouMusicApi'))); // 查看属性描述符";
-    // JSValue r2 = JS_Eval(ctx, str3, strlen(str3), "<input>", JS_EVAL_TYPE_GLOBAL);
-    // if (JS_IsException(r2))
-    // {
-    //     printf("Error: Failed to initialize kuGouMusicApi\n");
-    //     js_std_dump_error(ctx); // 打印 JS 错误，比如 KuGouMusicApi 未定义之类
-    // }
-    // JS_FreeValue(ctx, r2);
-
+    
     return ctx;
 }
 
@@ -263,7 +246,10 @@ int destroy_engine()
 {
     js_std_free_handlers(rt);
     ctxList_destroyAll();
-    JS_FreeRuntime(rt);
+    if (rt){
+        JS_FreeRuntime(rt);
+        rt = NULL;
+    }
     return 0;
 };
 
@@ -307,18 +293,17 @@ char *_request(JSContext *ctx,
     }
 
     // 2. 调用 route 得到 Promise
-    JSValue js_argv[argc];
-    for (int i = 0; i < argc; ++i)
-    {
+    JSValue *js_argv = malloc(sizeof(JSValue) * argc);
+    for (int i = 0; i < argc; ++i) {
         js_argv[i] = JS_NewString(ctx, argv[i] ? argv[i] : "");
     }
 
     JSValue p = JS_Call(ctx, func, api, argc, js_argv);
 
-    for (int i = 0; i < argc; ++i)
-    {
+    for (int i = 0; i < argc; ++i) {
         JS_FreeValue(ctx, js_argv[i]);
     }
+    free(js_argv);
     JS_FreeValue(ctx, func);
     JS_FreeValue(ctx, api);
 

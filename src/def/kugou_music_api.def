@@ -1,12 +1,11 @@
 LIBRARY kugou_music_api
 EXPORTS
-    init
-    init_simple
-    destroy
-    get_context
-    destroy_context
-    request
-    request_simple
+    get_kugou_context
+    kugou_init
+    kugou_init_simple
+    kugou_destroy
+    kugou_request
+    kugou_request_simple
     yueku_fm
     yueku_fm_simple
     yueku_banner

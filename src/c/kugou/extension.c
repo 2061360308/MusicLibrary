@@ -3,12 +3,12 @@
 
 #define API_FUNC(name, route)  \
     char *name(JSContext *ctx, const char *cookies, const char *params, ProcessEnv *env) {  \
-        return request(ctx, route, cookies, params, env);  \
+        return kugou_request(ctx, route, cookies, params, env);  \
     }
 
 #define API_FUNC_NOENV(name, route)  \
     char *name(JSContext *ctx, const char *cookies, const char *params) {  \
-        return request_simple(ctx, route, cookies, params);  \
+        return kugou_request_simple(ctx, route, cookies, params);  \
     }
 
 API_FUNC(yueku_fm, "/yueku/fm")

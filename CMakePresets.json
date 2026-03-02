@@ -76,6 +76,11 @@
       "configuration": "Release"
     },
     {
+      "name": "windows-x64-vcpkg-Debug",
+      "configurePreset": "windows-x64-vcpkg",
+      "configuration": "Debug"
+    },
+    {
       "name": "windows-x86-vcpkg-Release",
       "configurePreset": "windows-x86-vcpkg",
       "configuration": "Release"

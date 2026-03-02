@@ -8,14 +8,13 @@ typedef struct ProcessEnv {
   char *KUGOU_API_MAC;
 } ProcessEnv;
 typedef struct JSContext JSContext;
-JSContext *init(ProcessEnv *env);
-JSContext *init_simple();
-int destroy();
-JSContext *get_context();
-int destroy_context(JSContext *ctx);
+JSContext *kugou_init(ProcessEnv *env);
+JSContext *kugou_init_simple();
+int kugou_destroy();
+JSContext *get_kugou_context();
 
-char *request(JSContext *ctx, const char *route, const char *cookies, const char *params, ProcessEnv *env);
-char *request_simple(JSContext *ctx, const char *route, const char *cookies, const char *params);
+char *kugou_request(JSContext *ctx, const char *route, const char *cookies, const char *params, ProcessEnv *env);
+char *kugou_request_simple(JSContext *ctx, const char *route, const char *cookies, const char *params);
 char *yueku_fm(JSContext *ctx, const char *cookies, const char *params, ProcessEnv *env);
 char *yueku_fm_simple(JSContext *ctx, const char *cookies, const char *params);
 char *yueku_banner(JSContext *ctx, const char *cookies, const char *params, ProcessEnv *env);

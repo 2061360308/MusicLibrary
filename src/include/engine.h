@@ -8,7 +8,7 @@ typedef struct ByteCodeJs {
 } ByteCodeJs;
 
 // 引擎库初始化
-JSContext *init_engine();
+int init_engine();
 
 // 创建新上下文并返回
 JSContext *_get_context();

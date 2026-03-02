@@ -1,11 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <engine.h>
 #include "kugou_music_api.h"
 
 int main(int argc, char **argv)
 {
+  init_engine();
 
-  
+  // printf("Engine initialized.\n");
+
   ProcessEnv env = {
       .platform = "lite", //lite: 酷狗概念版, 默认为手机版留空字符串
       // 设备id(可选，建议固定 )
@@ -16,8 +19,14 @@ int main(int argc, char **argv)
       .KUGOU_API_MAC = "42:69:CB:E2:0D:DE",  // MAC地址
   };
 
-  JSContext *ctx = init(&env);
-  // JSContext *ctx2 = get_context(); 创建第二个上下文
+  JSContext *ctx = kugou_init(&env);
+  // // JSContext *ctx2 = get_context(); 创建第二个上下文
+
+  if (!ctx)
+  {
+    printf("Failed to initialize kugou context\n");
+    return 1;
+  }
 
   const char *cookies = "";
   const char *params = "{}";
@@ -56,4 +65,7 @@ int main(int argc, char **argv)
   {
     printf("No response2 or error occurred.\n");
   }
+
+  kugou_destroy();
+  destroy_engine();
 }
