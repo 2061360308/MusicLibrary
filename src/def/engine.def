@@ -1,0 +1,10 @@
+LIBRARY engine
+EXPORTS
+    init_engine
+    _get_context
+    destroy_context
+    genderByteCodeJs
+    load_js_code
+    eval_js
+    destroy_engine
+    _request

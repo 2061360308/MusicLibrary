@@ -5,6 +5,7 @@ const MODULES_FILE = path.join(__dirname, "..", "KuGouMusicApi", "module");
 const OUTPUR_JS_MODULE_DIR = path.join(__dirname, "..", "src", "js");
 const OUTPUT_C_HEADER_DIR = path.join(__dirname, "..", "src", "include");
 const OUTPUT_C_DIR = path.join(__dirname, "..", "src", "c");
+const OUTPUT_C_DEF_DIR = path.join(__dirname, "..", "src", "def");
 const specificRoute = {};
 
 function getModules() {
@@ -59,14 +60,13 @@ function generateHeader(modules) {
     "  char *KUGOU_API_MAC;",
     "} ProcessEnv;",
     "typedef struct JSContext JSContext;",
-    "JSContext *init(ProcessEnv *env);",
-    "JSContext *init_simple();",
-    "int destroy();",
-    "JSContext *get_context();",
-    "int destroy_context(JSContext *ctx);",
+    "JSContext *kugou_init(ProcessEnv *env);",
+    "JSContext *kugou_init_simple();",
+    "int kugou_destroy();",
+    "JSContext *get_kugou_context();",
     "",
-    "char *request(JSContext *ctx, const char *route, const char *cookies, const char *params, ProcessEnv *env);",
-    "char *request_simple(JSContext *ctx, const char *route, const char *cookies, const char *params);",
+    "char *kugou_request(JSContext *ctx, const char *route, const char *cookies, const char *params, ProcessEnv *env);",
+    "char *kugou_request_simple(JSContext *ctx, const char *route, const char *cookies, const char *params);",
     ...modules.flatMap((m) => [
       `char *${m.identifier}(JSContext *ctx, const char *cookies, const char *params, ProcessEnv *env);`,
       `char *${m.identifier}_simple(JSContext *ctx, const char *cookies, const char *params);`,
@@ -85,12 +85,12 @@ function generateImpl(modules) {
     "",
     "#define API_FUNC(name, route)  \\",
     "    char *name(JSContext *ctx, const char *cookies, const char *params, ProcessEnv *env) {  \\",
-    "        return request(ctx, route, cookies, params, env);  \\",
+    "        return kugou_request(ctx, route, cookies, params, env);  \\",
     "    }",
     "",
     "#define API_FUNC_NOENV(name, route)  \\",
     "    char *name(JSContext *ctx, const char *cookies, const char *params) {  \\",
-    "        return request_simple(ctx, route, cookies, params);  \\",
+    "        return kugou_request_simple(ctx, route, cookies, params);  \\",
     "    }",
     "",
     ...modules.flatMap((m) => [
@@ -106,13 +106,12 @@ function generateDef(modules) {
   const lines = [
     "LIBRARY kugou_music_api",
     "EXPORTS",
-    "    init",
-    "    init_simple",
-    "    destroy",
-    "    get_context",
-    "    destroy_context",
-    "    request",
-    "    request_simple",
+    "    get_kugou_context",
+    "    kugou_init",
+    "    kugou_init_simple",
+    "    kugou_destroy",
+    "    kugou_request",
+    "    kugou_request_simple",
     ...modules.flatMap((m) => [
       `    ${m.identifier}`,
       `    ${m.identifier}_simple`,
@@ -145,12 +144,12 @@ function main() {
   console.log(`Written: ${OUTPUT_C_HEADER_DIR}/kugou_music_api.h`);
 
   const impl = generateImpl(modules);
-  fs.writeFileSync(path.join(OUTPUT_C_DIR, "kugou_music_api.c"), impl);
-  console.log(`Written: ${OUTPUT_C_DIR}/kugou_music_api.c`);
+  fs.writeFileSync(path.join(OUTPUT_C_DIR, "kugou/extension.c"), impl);
+  console.log(`Written: ${OUTPUT_C_DIR}/kugou/extension.c`);
 
   const def = generateDef(modules);
-  fs.writeFileSync(path.join(OUTPUT_C_DIR, "kugou_music_api.def"), def);
-  console.log(`Written: ${OUTPUT_C_DIR}/kugou_music_api.def`);
+  fs.writeFileSync(path.join(OUTPUT_C_DEF_DIR, "kugou_music_api.def"), def);
+  console.log(`Written: ${OUTPUT_C_DEF_DIR}/kugou_music_api.def`);
 
   console.log("Done!");
 }
