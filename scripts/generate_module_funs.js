@@ -53,6 +53,9 @@ function generateHeader(modules) {
     "#ifndef KUGOU_API_H",
     "#define KUGOU_API_H",
     "",
+    "#include <stdio.h>",
+    "#include <stdlib.h>",
+    "",
     "typedef struct ProcessEnv {",
     "  char *platform;",
     "  char *KUGOU_API_GUID;",
@@ -67,10 +70,21 @@ function generateHeader(modules) {
     "",
     "char *kugou_request(JSContext *ctx, const char *route, const char *cookies, const char *params, ProcessEnv *env);",
     "char *kugou_request_simple(JSContext *ctx, const char *route, const char *cookies, const char *params);",
+    // ...modules.flatMap((m) => [
+    //   `char *${m.identifier}(JSContext *ctx, const char *cookies, const char *params, ProcessEnv *env);`,
+    //   `char *${m.identifier}_simple(JSContext *ctx, const char *cookies, const char *params);`,
+    // ]),
+
+    "typedef struct KugouAPI",
+    "{",
+    // "  char *(*top_song)(JSContext *ctx, const char *cookies, const char *params, ProcessEnv *env);",
     ...modules.flatMap((m) => [
-      `char *${m.identifier}(JSContext *ctx, const char *cookies, const char *params, ProcessEnv *env);`,
-      `char *${m.identifier}_simple(JSContext *ctx, const char *cookies, const char *params);`,
+      `  char *(*${m.identifier})(JSContext *ctx, const char *cookies, const char *params, ProcessEnv *env);`,
+      `  char *(*${m.identifier}_simple)(JSContext *ctx, const char *cookies, const char *params);`,
     ]),
+    "} KugouAPI;",
+    "",
+    "KugouAPI *create_kugou_api();",
     "",
     "#endif",
   ];
@@ -84,12 +98,12 @@ function generateImpl(modules) {
     '#include "kugou_music_api.h"',
     "",
     "#define API_FUNC(name, route)  \\",
-    "    char *name(JSContext *ctx, const char *cookies, const char *params, ProcessEnv *env) {  \\",
+    "    static char *name(JSContext *ctx, const char *cookies, const char *params, ProcessEnv *env) {  \\",
     "        return kugou_request(ctx, route, cookies, params, env);  \\",
     "    }",
     "",
     "#define API_FUNC_NOENV(name, route)  \\",
-    "    char *name(JSContext *ctx, const char *cookies, const char *params) {  \\",
+    "    static char *name(JSContext *ctx, const char *cookies, const char *params) {  \\",
     "        return kugou_request_simple(ctx, route, cookies, params);  \\",
     "    }",
     "",
@@ -97,6 +111,15 @@ function generateImpl(modules) {
       `API_FUNC(${m.identifier}, "${m.route}")`,
       `API_FUNC_NOENV(${m.identifier}_simple, "${m.route}")`,
     ]),
+    "",
+    "KugouAPI *create_kugou_api(){",
+    "    KugouAPI *api = malloc(sizeof(KugouAPI));",
+    ...modules.flatMap((m) => [
+      `    api->${m.identifier} = ${m.identifier};`,
+      `    api->${m.identifier}_simple = ${m.identifier}_simple;`,
+    ]),
+    "    return api;",
+    "};",
   ];
 
   return lines.join("\n");
@@ -112,10 +135,11 @@ function generateDef(modules) {
     "    kugou_destroy",
     "    kugou_request",
     "    kugou_request_simple",
-    ...modules.flatMap((m) => [
-      `    ${m.identifier}`,
-      `    ${m.identifier}_simple`,
-    ]),
+    "    create_kugou_api",
+    // ...modules.flatMap((m) => [
+    //   `    ${m.identifier}`,
+    //   `    ${m.identifier}_simple`,
+    // ]),
     "",
   ];
 

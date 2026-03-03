@@ -4,6 +4,7 @@
 
 # CMake build files
 build/
+out/
 
 # bundle
 bundle/
@@ -16,3 +17,6 @@ node_modules/
 
 # vcpkg
 vcpkg_installed/
+
+NeteaseCloudMusicApi/
+NeteaseCloudMusicApi-*.tgz

@@ -6,6 +6,7 @@
 #include "quickjs-libc.h"
 #include "quickjs.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <inttypes.h>
 #include "tinycthread.h"
 #include "engine.h"
@@ -115,9 +116,7 @@ ByteCodeJs *genderByteCodeJs(JSContext *ctx, const char *code)
         return errObj;
     }
 
-    uint8_t *data;
-
-    data = malloc(bytecode_size);
+    uint8_t *data = malloc(bytecode_size);
     if (!data)
     {
         fprintf(stderr, "Error: Failed to allocate memory for ByteCodeJs data\n");
@@ -144,26 +143,27 @@ ByteCodeJs *genderByteCodeJs(JSContext *ctx, const char *code)
 int load_js_code(JSContext *ctx, const ByteCodeJs *existingByteCode)
 {
     // 直接执行已有的字节码
-    JSValue result = JS_ReadObject(ctx, existingByteCode->data, existingByteCode->size, JS_READ_OBJ_BYTECODE);
-    if (JS_IsException(result))
-    {
-        js_std_dump_error(ctx);
-        fprintf(stderr, "Error: Failed to execute ByteCodeJs \n");
-        JS_FreeValue(ctx, result);
-        return 1;
-    }
+    // JSValue result = JS_ReadObject(ctx, existingByteCode->data, existingByteCode->size, JS_READ_OBJ_BYTECODE);
+    // if (JS_IsException(result))
+    // {
+    //     js_std_dump_error(ctx);
+    //     fprintf(stderr, "Error: Failed to execute ByteCodeJs \n");
+    //     JS_FreeValue(ctx, result);
+    //     return 1;
+    // }
 
-    JSValue eval_result = JS_EvalFunction(ctx, result);
-    if (JS_IsException(eval_result))
-    {
-        js_std_dump_error(ctx);
-        fprintf(stderr, "Error: Failed to evaluate ByteCodeJs \n");
-        JS_FreeValue(ctx, eval_result);
-        JS_FreeValue(ctx, result);
-        return 1;
-    }
-    JS_FreeValue(ctx, eval_result);
-    JS_FreeValue(ctx, result);
+    // JSValue eval_result = JS_EvalFunction(ctx, result);
+    // if (JS_IsException(eval_result))
+    // {
+    //     js_std_dump_error(ctx);
+    //     fprintf(stderr, "Error: Failed to evaluate ByteCodeJs \n");
+    //     JS_FreeValue(ctx, eval_result);
+    //     JS_FreeValue(ctx, result);
+    //     return 1;
+    // }
+    // JS_FreeValue(ctx, eval_result);
+    // JS_FreeValue(ctx, result);
+    js_std_eval_binary(ctx, existingByteCode->data, existingByteCode->size, 0);
     return 0;
 }
 

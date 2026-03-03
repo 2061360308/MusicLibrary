@@ -22,6 +22,8 @@ int main(int argc, char **argv)
   JSContext *ctx = kugou_init(&env);
   // // JSContext *ctx2 = get_context(); 创建第二个上下文
 
+  KugouAPI *api = create_kugou_api();
+
   if (!ctx)
   {
     printf("Failed to initialize kugou context\n");
@@ -31,7 +33,7 @@ int main(int argc, char **argv)
   const char *cookies = "";
   const char *params = "{}";
 
-  const char *response = top_song(ctx, cookies, params, NULL);
+  const char *response = api->top_song(ctx, cookies, params, NULL);
   if (response)
   {
     FILE *fp = fopen("response.txt", "w");
@@ -49,7 +51,7 @@ int main(int argc, char **argv)
   }
 
   const char *params2 = "{\"ids\":\"collection_3_1863870844_4_0,collection_3_2093906551_8_0\"}";
-  const char *response2 = playlist_detail(ctx, cookies, params2, NULL);
+  const char *response2 = api->playlist_detail(ctx, cookies, params2, NULL);
   if (response2)
   {
     FILE *fp = fopen("response2.txt", "w");

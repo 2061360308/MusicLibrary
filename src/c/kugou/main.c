@@ -37,37 +37,37 @@ static void registerEnv(JSContext *ctx, const char *platform, const char *guid, 
 JSContext *get_kugou_context()
 {
     JSContext *ctx = _get_context();
-    // if (kugou_music_api_bytecode)
-    // {
-    //     int result = load_js_code(ctx, kugou_music_api_bytecode);
-    //     if (result != 0)
-    //     {
-    //         fprintf(stderr, "Error: Failed to load kugou_music_api bytecode\n");
-    //         // destroy_context(ctx);
-    //         return NULL;
-    //     }
-    // }
-    // else
-    // {
-    //     // 从源代码编译字节码并执行
-    //     kugou_music_api_bytecode = genderByteCodeJs(ctx, kugou_music_api_bundle_code);
-    //     if (!kugou_music_api_bytecode || !kugou_music_api_bytecode->data)
-    //     {
-    //         fprintf(stderr, "Error: Failed to compile kugou_music_api_bundle_code\n");
-    //         // destroy_context(ctx);
-    //         return NULL;
-    //     }
-    //     printf("kugou_music_api bytecode generated, size: %u bytes\n", kugou_music_api_bytecode->size);
-    //     int result = load_js_code(ctx, kugou_music_api_bytecode);
-    //     if (result != 0)
-    //     {
-    //         printf("Error: Failed to load kugou_music_api bytecode on first load\n");
-    //         fprintf(stderr, "Error: Failed to load kugou_music_api bytecode\n");
-    //         // destroy_context(ctx);
-    //         return NULL;
-    //     }
-    // }
-    eval_js(ctx, kugou_music_api_bundle_code);
+    if (kugou_music_api_bytecode)
+    {
+        int result = load_js_code(ctx, kugou_music_api_bytecode);
+        if (result != 0)
+        {
+            fprintf(stderr, "Error: Failed to load kugou_music_api bytecode\n");
+            // destroy_context(ctx);
+            return NULL;
+        }
+    }
+    else
+    {
+        // 从源代码编译字节码并执行
+        kugou_music_api_bytecode = genderByteCodeJs(ctx, kugou_music_api_bundle_code);
+        if (!kugou_music_api_bytecode || !kugou_music_api_bytecode->data)
+        {
+            fprintf(stderr, "Error: Failed to compile kugou_music_api_bundle_code\n");
+            // destroy_context(ctx);
+            return NULL;
+        }
+        printf("kugou_music_api bytecode generated, size: %u bytes\n", kugou_music_api_bytecode->size);
+        int result = load_js_code(ctx, kugou_music_api_bytecode);
+        if (result != 0)
+        {
+            printf("Error: Failed to load kugou_music_api bytecode on first load\n");
+            fprintf(stderr, "Error: Failed to load kugou_music_api bytecode\n");
+            // destroy_context(ctx);
+            return NULL;
+        }
+    }
+    // eval_js(ctx, kugou_music_api_bundle_code);
 
     eval_js(ctx, "globalThis.kuGouMusicApi = new KuGouMusicApi();\n");
     return ctx;
