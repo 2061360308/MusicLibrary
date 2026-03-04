@@ -1,0 +1,95 @@
+const path = require("path");
+const webpack = require("webpack");
+const TerserPlugin = require("terser-webpack-plugin");
+const js_to_header = require("./js_to_header");
+const generate_module_funs = require("./generate_module/ncm");
+
+generate_module_funs();
+
+module.exports = {
+  mode: "production",
+  entry: path.resolve(__dirname, "../src/js/ncm/index.js"), // 入口文件
+  output: {
+    path: path.resolve(__dirname, "../bundle/js"),
+    filename: "ncm_music_api_bundle.js",
+    library: "NcmMusicApi", // 导出为全局变量
+    libraryTarget: "umd", // 支持多种模块规范
+    globalObject: "globalThis",
+  },
+  resolve: {
+    alias: {
+      // 劫持 axios
+      axios: path.resolve(__dirname, "../src/js/axios_bridge.js"),
+      "@NeteaseCloudMusicApi": path.resolve(__dirname, "../NeteaseCloudMusicApi"),
+    },
+    modules: [
+      path.resolve(__dirname, "../src/js/ncm"),
+      path.resolve(__dirname, "../NeteaseCloudMusicApi"),
+      "node_modules",
+    ],
+  },
+  optimization: {
+    minimize: true, // 先关闭压缩，方便调试。后续可以开启。
+    minimizer: [
+      new TerserPlugin({
+        extractComments: false, // 不将注释提取到单独的文件中
+        terserOptions: {
+          format: {
+            comments: false, // 从输出中删除所有注释
+          },
+        },
+      }),
+    ],
+  },
+  plugins: [
+    new webpack.BannerPlugin({
+      banner: `
+'undefined' != typeof globalThis &&
+  (void 0 === globalThis.window && (globalThis.window = globalThis),
+  'object' !== typeof globalThis.process && (globalThis.process = {}),
+  'object' !== typeof globalThis.process.env && (globalThis.process.env = {}),
+  void 0 === globalThis.process.env.ANONYMOUS_TOKEN && (globalThis.process.env.ANONYMOUS_TOKEN = ''),
+  void 0 === globalThis.process.env.cnIp && (globalThis.process.env.cnIp = ''));
+      `,
+      raw: true,
+      entryOnly: true,
+    }),
+    {
+      apply: (compiler) => {
+        // compiler.hooks.done.tap("BuildCompleteCallback", (stats) => {
+        //   if (stats.hasErrors()) {
+        //     console.error(
+        //       "Build completed with errors. Skipping js_to_header."
+        //     );
+        //   } else {
+        //     js_to_header();
+        //   }
+        // });
+      },
+    },
+  ],
+  module: {
+    rules: [
+      {
+        test: /\.js$/,
+        use: {
+          loader: "babel-loader", // 使用 babel
+          options: {
+            presets: [
+              [
+                "@babel/preset-env",
+                {
+                  targets: { ie: "11" },
+                  useBuiltIns: false,
+                  forceAllTransforms: true,
+                },
+              ],
+            ],
+            plugins: [],
+          },
+        },
+      },
+    ],
+  },
+  target: ["web", "es6"], // 兼容浏览器和 ES6
+};

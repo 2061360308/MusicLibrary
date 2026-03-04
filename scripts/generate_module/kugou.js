@@ -1,62 +1,13 @@
 const fs = require("fs");
 const path = require("path");
+const { getModules, generateModulesDefinitions } = require("./tool");
 
-const KugouModulesPath = path.join(__dirname, "..", "KuGouMusicApi", "module");
-const NcmModulesPath = path.join(
-  __dirname,
-  "..",
-  "NeteaseCloudMusicApi",
-  "module"
-);
-const OUTPUR_JS_MODULE_DIR = path.join(__dirname, "..", "src", "js");
-const OUTPUT_C_HEADER_DIR = path.join(__dirname, "..", "src", "include");
-const OUTPUT_C_DIR = path.join(__dirname, "..", "src", "c");
-const OUTPUT_C_DEF_DIR = path.join(__dirname, "..", "src", "def");
-const ncmSpecificRoute = {
-  "daily_signin.js": "/daily_signin",
-  "fm_trash.js": "/fm_trash",
-  "personal_fm.js": "/personal_fm",
-};
+const KugouModulesPath = path.join(__dirname, "..", "..", "KuGouMusicApi", "module");
 
-function getModules(modulesPath, specificRoute = {}, skipModules=[]) {
-  const files = fs.readdirSync(modulesPath).filter(file => !skipModules.includes(file));
-  const parseRoute = (fileName) =>
-    specificRoute && fileName in specificRoute
-      ? specificRoute[fileName]
-      : `/${fileName.replace(/\.(js)$/i, "").replace(/_/g, "/")}`;
-
-  // 过滤、排序、生成 require 语句和导出对象
-  const modules = files
-    .reverse()
-    .filter((fileName) => fileName.endsWith(".js") && !fileName.startsWith("_"))
-    .map((fileName) => {
-      const identifier = fileName.split(".").shift();
-      const route = parseRoute(fileName);
-      const modulePath =
-        "@kuGouMusicApi/" +
-        path.join(path.basename(modulesPath), fileName).replace(/\\/g, "/");
-      return { identifier, route, modulePath };
-    });
-  return modules;
-}
-
-function generateModulesDefinitions(modules) {
-  const lines = [
-    "// 自动生成，请勿手动修改",
-    ...modules.map(
-      (m) => `const ${m.identifier} = require('${m.modulePath}');`
-    ),
-    "",
-    "module.exports = [",
-    ...modules.map(
-      (m) =>
-        `  { identifier: '${m.identifier}', route: '${m.route}', module: ${m.identifier} },`
-    ),
-    "];",
-    "",
-  ];
-  return lines.join("\n");
-}
+const OUTPUR_JS_MODULE_DIR = path.join(__dirname, "..", "..", "src", "js", "kugou");
+const OUTPUT_C_HEADER_DIR = path.join(__dirname, "..", "..", "src", "include");
+const OUTPUT_C_DIR = path.join(__dirname, "..", "..", "src", "c", "kugou");
+const OUTPUT_C_DEF_DIR = path.join(__dirname, "..", "..", "src", "def");
 
 function generateKugouHeader(modules) {
   const lines = [
@@ -157,36 +108,19 @@ function generateKugouDef(modules) {
 }
 
 function main() {
-  console.log("Generating functions by modules...");
+  console.log("Generating Kugou functions by modules...");
 
-  const kugouModules = getModules(KugouModulesPath);
+  const kugouModules = getModules(KugouModulesPath, "@kuGouMusicApi/");
   console.log(`Found ${kugouModules.length} modules`);
 
-  console.log("Generating Kugou modules Js definitions...");
+  console.log("Generating Js definitions...");
 
   const modulesDefinitions = generateModulesDefinitions(kugouModules);
   fs.writeFileSync(
-    path.join(OUTPUR_JS_MODULE_DIR, "kugou", "modulesDefinitions.js"),
+    path.join(OUTPUR_JS_MODULE_DIR, "modulesDefinitions.js"),
     modulesDefinitions
   );
-  console.log(`Written: ${OUTPUR_JS_MODULE_DIR}/kugou/modulesDefinitions.js`);
-
-  const ncmModules = getModules(NcmModulesPath, ncmSpecificRoute);
-  console.log(`Found ${ncmModules.length} modules`);
-
-  console.log("Generating NCM modules Js definitions...");
-
-  const ncmModulesDefinitions = generateModulesDefinitions(ncmModules);
-  fs.writeFileSync(
-    path.join(OUTPUR_JS_MODULE_DIR, "ncm", "modulesDefinitions.js"),
-    ncmModulesDefinitions
-  );
-  console.log(`Written: ${OUTPUR_JS_MODULE_DIR}/ncm/modulesDefinitions.js`);
-  fs.writeFileSync(
-    path.join(OUTPUR_JS_MODULE_DIR, "kugou", "modulesDefinitions.js"),
-    modulesDefinitions
-  );
-  console.log(`Written: ${OUTPUR_JS_MODULE_DIR}/kugou/modulesDefinitions.js`);
+  console.log(`Written: ${OUTPUR_JS_MODULE_DIR}/modulesDefinitions.js`);
 
   console.log("Generating C API...");
 
@@ -195,8 +129,8 @@ function main() {
   console.log(`Written: ${OUTPUT_C_HEADER_DIR}/kugou_music_api.h`);
 
   const impl = generateKugouImpl(kugouModules);
-  fs.writeFileSync(path.join(OUTPUT_C_DIR, "kugou", "extension.c"), impl);
-  console.log(`Written: ${OUTPUT_C_DIR}/kugou/extension.c`);
+  fs.writeFileSync(path.join(OUTPUT_C_DIR, "extension.c"), impl);
+  console.log(`Written: ${OUTPUT_C_DIR}/extension.c`);
 
   const def = generateKugouDef(kugouModules);
   fs.writeFileSync(path.join(OUTPUT_C_DEF_DIR, "kugou_music_api.def"), def);

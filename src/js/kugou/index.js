@@ -9,9 +9,6 @@ const serverDev = randomString(10).toUpperCase();
 const axios = require('axios');
 
 class KuGouMusicApi {
-  constructor() {
-    this.axios = axios;
-  }
 }
 
 class Res {

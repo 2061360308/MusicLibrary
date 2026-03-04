@@ -125,3 +125,4 @@ function axios(config) {
 // axios._queue = hijack.queue;
 
 module.exports = axios;
+module.exports.default = axios;
