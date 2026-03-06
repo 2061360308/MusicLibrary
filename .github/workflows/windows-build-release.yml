@@ -37,6 +37,9 @@ jobs:
           node-version: "20"
           architecture: ${{ matrix.architecture }}
           cache: "pnpm"
+      
+      - name: Pull NCM project submodule
+        run: node scripts/pull_ncm.js
 
       - name: Install dependencies
         run: pnpm install
