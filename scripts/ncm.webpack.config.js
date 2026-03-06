@@ -12,7 +12,7 @@ module.exports = {
   output: {
     path: path.resolve(__dirname, "../bundle/js"),
     filename: "ncm_music_api_bundle.js",
-    library: "NcmMusicApi", // 导出为全局变量
+    library: "NeteaseCloudMusicApiApi", // 导出为全局变量
     libraryTarget: "umd", // 支持多种模块规范
     globalObject: "globalThis",
   },
@@ -20,7 +20,10 @@ module.exports = {
     alias: {
       // 劫持 axios
       axios: path.resolve(__dirname, "../src/js/axios_bridge.js"),
-      "@NeteaseCloudMusicApi": path.resolve(__dirname, "../NeteaseCloudMusicApi"),
+      "@NeteaseCloudMusicApi": path.resolve(
+        __dirname,
+        "../NeteaseCloudMusicApi"
+      ),
     },
     modules: [
       path.resolve(__dirname, "../src/js/ncm"),
@@ -29,7 +32,7 @@ module.exports = {
     ],
   },
   optimization: {
-    minimize: true, // 先关闭压缩，方便调试。后续可以开启。
+    minimize: false, // 先关闭压缩，方便调试。后续可以开启。
     minimizer: [
       new TerserPlugin({
         extractComments: false, // 不将注释提取到单独的文件中
@@ -48,23 +51,35 @@ module.exports = {
   (void 0 === globalThis.window && (globalThis.window = globalThis),
   'object' !== typeof globalThis.process && (globalThis.process = {}),
   'object' !== typeof globalThis.process.env && (globalThis.process.env = {}),
+  (typeof global === 'undefined' ? (typeof window !== 'undefined' ? window : globalThis).global = globalThis : void 0),
   void 0 === globalThis.process.env.ANONYMOUS_TOKEN && (globalThis.process.env.ANONYMOUS_TOKEN = ''),
-  void 0 === globalThis.process.env.cnIp && (globalThis.process.env.cnIp = ''));
-      `,
+  void 0 === globalThis.process.env.cnIp && (globalThis.process.env.cnIp = ''),
+  void 0 === globalThis.crypto && (globalThis.crypto = {
+    getRandomValues: function (arr) {
+      for (var i = 0; i < arr.length; i++) {
+        arr[i] = Math.floor(Math.random() * 256);
+      }
+      return arr;
+    }
+  }));
+`,
       raw: true,
       entryOnly: true,
     }),
+    new webpack.IgnorePlugin({
+      resourceRegExp: /^path$|^fs$/  // NeteaseCloudMusicApi\module\register_anonimous.js 中多余导入
+    }),
     {
       apply: (compiler) => {
-        // compiler.hooks.done.tap("BuildCompleteCallback", (stats) => {
-        //   if (stats.hasErrors()) {
-        //     console.error(
-        //       "Build completed with errors. Skipping js_to_header."
-        //     );
-        //   } else {
-        //     js_to_header();
-        //   }
-        // });
+        compiler.hooks.done.tap("BuildCompleteCallback", (stats) => {
+          if (stats.hasErrors()) {
+            console.error(
+              "Build completed with errors. Skipping js_to_header."
+            );
+          } else {
+            js_to_header();
+          }
+        });
       },
     },
   ],

@@ -16,13 +16,19 @@ JSContext *_get_context();
 int destroy_context(JSContext *ctx);
 
 // 从 js 代码编译为字节码
-ByteCodeJs *genderByteCodeJs(JSContext *ctx, const char *code);
+ByteCodeJs *genderByteCodeJs(JSContext *ctx, const char *code, char *filename);
 
 // 执行js字节码
 int load_js_code(JSContext *ctx, const ByteCodeJs *existingByteCode);
 
 // 执行js代码,用于初始化全局对象
-int eval_js(JSContext *ctx, char *code);
+int eval_js(JSContext *ctx, char *code, char *filename);
+
+// 执行js代码,获取返回值
+char *eval_js_with_result(JSContext *ctx, char *code, char *filename);
+
+// 执行js代码,等待获取Promise返回值
+char *eval_js_with_promise_result(JSContext *ctx, char *code, char *filename);
 
 // 引擎库销毁
 int destroy_engine();

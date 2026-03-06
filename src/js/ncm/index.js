@@ -4,6 +4,7 @@ const request = require("./request");
 const packageJSON = require("@NeteaseCloudMusicApi/package.json");
 const cache = require("@NeteaseCloudMusicApi/util/apicache").middleware;
 const { cookieToJson } = require("@NeteaseCloudMusicApi/util/index");
+const { generateRandomChineseIP } = require("@NeteaseCloudMusicApi/util/index");
 const moduleDefinitions = require("./modulesDefinitions.js");
 
 /**
@@ -25,7 +26,9 @@ const moduleDefinitions = require("./modulesDefinitions.js");
 
 const axios = require("axios");
 
-class NeteaseCloudMusicApiApi {}
+class NeteaseCloudMusicApiApi {
+  static generateRandomChineseIP = generateRandomChineseIP;
+}
 
 class Res {
   constructor() {
@@ -92,8 +95,44 @@ moduleDefinitions.forEach(({ route, module }) => {
   };
 });
 
+NeteaseCloudMusicApiApi.prototype.get_anonimous_cookie = async () => {
+  try {
+    const register_anonimous = function (data = {}) {
+      const cookie =
+        typeof data.cookie === "string"
+          ? cookieToJson(data.cookie)
+          : data.cookie || {};
+      return routeModuleMap['/register/anonimous'](
+        {
+          ...data,
+          cookie,
+        },
+        async (...args) => {
+          return request(...args);
+        }
+      );
+    };
+
+    const res = await register_anonimous();
+    const cookie = res.body.cookie;
+    const cookieObj = cookieToJson(cookie);
+    const MUSIC_A = cookieObj.MUSIC_A || "";
+
+    return MUSIC_A;
+  } catch (e) {
+    console.log("Error during anonymous registration:", JSON.stringify(e));
+    console.log("Error stack:", e && e.stack);
+    console.log("Error JSON:", JSON.stringify(e));
+    throw e;
+  }
+};
+
 // 统一的 route 方法
-NeteaseCloudMusicApiApi.prototype.route = async function (route, _cookie, args) {
+NeteaseCloudMusicApiApi.prototype.route = async function (
+  route,
+  _cookie,
+  args
+) {
   let params = {};
   try {
     params = JSON.parse(args || "{}");
@@ -155,23 +194,23 @@ NeteaseCloudMusicApiApi.prototype.route = async function (route, _cookie, args) 
     // const moduleResponse =
     try {
       const moduleResponse = await module(query, (...params) => {
-          // 参数注入客户端IP
-          const obj = [...params];
-          let ip = req.ip;
+        // 参数注入客户端IP
+        const obj = [...params];
+        let ip = req.ip;
 
-          if (ip.substring(0, 7) == "::ffff:") {
-            ip = ip.substring(7);
-          }
-          if (ip == "::1") {
-            ip = process.env.cnIp;  // 统一从环境变量获取
-          }
-          // console.log(ip)
-          obj[3] = {
-            ...obj[3],
-            ip,
-          };
-          return request(...obj);
-        });
+        if (ip.substring(0, 7) == "::ffff:") {
+          ip = ip.substring(7);
+        }
+        if (ip == "::1") {
+          ip = process.env.cnIp; // 统一从环境变量获取
+        }
+        // console.log(ip)
+        obj[3] = {
+          ...obj[3],
+          ip,
+        };
+        return request(...obj);
+      });
 
       const cookies = moduleResponse.cookie;
       if (!query.noCookie) {

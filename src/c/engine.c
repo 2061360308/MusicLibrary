@@ -7,6 +7,7 @@
 #include "quickjs.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <inttypes.h>
 #include "tinycthread.h"
 #include "engine.h"
@@ -84,7 +85,7 @@ static void ctxList_destroyAll()
 }
 
 // 从 js 代码编译为字节码
-ByteCodeJs *genderByteCodeJs(JSContext *ctx, const char *code)
+ByteCodeJs *genderByteCodeJs(JSContext *ctx, const char *code, char *filename)
 {
     ByteCodeJs *errObj = malloc(sizeof(ByteCodeJs));
     if (errObj)
@@ -95,7 +96,7 @@ ByteCodeJs *genderByteCodeJs(JSContext *ctx, const char *code)
     // 编译 code 为字节码
     JSValue bytecode = JS_Eval(ctx, (const char *)code,
                                strlen(code),
-                               "<kugou_music_api>",
+                               filename ? filename : "<input>",
                                JS_EVAL_TYPE_GLOBAL | JS_EVAL_FLAG_COMPILE_ONLY);
 
     if (JS_IsException(bytecode))
@@ -168,9 +169,9 @@ int load_js_code(JSContext *ctx, const ByteCodeJs *existingByteCode)
 }
 
 // 执行js代码
-int eval_js(JSContext *ctx, char *code)
+int eval_js(JSContext *ctx, char *code, char *filename)
 {
-    JSValue r2 = JS_Eval(ctx, code, strlen(code), "<input>", JS_EVAL_TYPE_GLOBAL);
+    JSValue r2 = JS_Eval(ctx, code, strlen(code), filename ? filename : "<input>", JS_EVAL_TYPE_GLOBAL);
     if (JS_IsException(r2))
     {
         js_std_dump_error(ctx); // 打印 JS 错误，比如 KuGouMusicApi 未定义之类
@@ -181,34 +182,185 @@ int eval_js(JSContext *ctx, char *code)
     return 0;
 }
 
+char *eval_js_with_result(JSContext *ctx, char *code, char *filename)
+{
+    JSValue r2 = JS_Eval(ctx, code, strlen(code), filename ? filename : "<input>", JS_EVAL_TYPE_GLOBAL);
+    if (JS_IsException(r2))
+    {
+        js_std_dump_error(ctx); // 打印 JS 错误，比如 KuGouMusicApi 未定义之类
+        JS_FreeValue(ctx, r2);
+        return NULL;
+    }
+    size_t len;
+    const char *result_str = JS_ToCStringLen(ctx, &len, r2);
+    char *result = NULL;
+    if (result_str)
+    {
+        size_t real_len = strlen(result_str);
+        result = malloc(real_len + 1);
+        if (result)
+        {
+            strcpy(result, result_str);
+        }
+        JS_FreeCString(ctx, result_str);
+    }
+
+    if (!result)
+    {
+        fprintf(stderr, "Error: Failed to convert JS result to C string\n");
+        return NULL;
+    }
+
+    return result;
+}
+
+char *eval_js_with_promise_result(JSContext *ctx, char *code, char *filename){
+    JSValue r2 = JS_Eval(ctx, code, strlen(code), filename ? filename : "<input>", JS_EVAL_TYPE_GLOBAL);
+    if (JS_IsException(r2))
+    {
+        js_std_dump_error(ctx);
+        JS_FreeValue(ctx, r2);
+        return NULL;
+    }
+
+    JSValue global_obj = JS_GetGlobalObject(ctx);
+
+    // 挂到全局并设置 then/catch
+    JS_SetPropertyStr(ctx, global_obj, "__pendingEvalPromise", JS_DupValue(ctx, r2));
+
+    const char *promise_code =
+        "globalThis.__evalDone = false;\n"
+        "globalThis.__lastEvalResult = undefined;\n"
+        "globalThis.__lastEvalError = undefined;\n"
+        "Promise.resolve(globalThis.__pendingEvalPromise)\n"
+        "  .then(res => { globalThis.__lastEvalResult = res; globalThis.__evalDone = true; })\n"
+        "  .catch(err => { globalThis.__lastEvalError = err; globalThis.__evalDone = true; });\n";
+
+    JSValue eval_res = JS_Eval(ctx, promise_code, strlen(promise_code), "<eval-wrapper>", JS_EVAL_TYPE_GLOBAL);
+    if (JS_IsException(eval_res))
+    {
+        js_std_dump_error(ctx);
+        JS_FreeValue(ctx, eval_res);
+        JS_FreeValue(ctx, r2);
+        JS_FreeValue(ctx, global_obj);
+        return NULL;
+    }
+    JS_FreeValue(ctx, eval_res);
+    JS_FreeValue(ctx, r2);
+
+    // 跑事件循环直到 Promise 完成
+    js_std_loop(ctx);
+
+    JSValue done = JS_GetPropertyStr(ctx, global_obj, "__evalDone");
+    int is_done = JS_ToBool(ctx, done);
+    JS_FreeValue(ctx, done);
+
+    if (!is_done)
+    {
+        JS_FreeValue(ctx, global_obj);
+        return NULL;
+    }
+
+    char *result = NULL;
+    JSValue err = JS_GetPropertyStr(ctx, global_obj, "__lastEvalError");
+
+    int has_err = (!JS_IsUndefined(err) && !JS_IsNull(err));
+
+    if (!JS_IsUndefined(err) && !JS_IsNull(err))
+    {
+        const char *err_str = JS_ToCString(ctx, err);
+        JS_FreeValue(ctx, err);
+        JS_FreeValue(ctx, global_obj);
+        if (!err_str)
+            return NULL;
+        // 检查是否为递归溢出错误
+        if (strstr(err_str, "Maximum call stack size exceeded") != NULL) {
+            fprintf(stderr, "Error: JS stack overflow detected!\n");
+            result = malloc(128);
+            if (result)
+                strcpy(result, "JS stack overflow: Maximum call stack size exceeded");
+            JS_FreeCString(ctx, err_str);
+            return result;
+        }
+        size_t len = strlen(err_str);
+        result = malloc(len + 1);
+        if (result)
+            memcpy(result, err_str, len + 1);
+        JS_FreeCString(ctx, err_str);
+    }
+    else
+    {
+        JS_FreeValue(ctx, err);
+
+        JSValue res = JS_GetPropertyStr(ctx, global_obj, "__lastEvalResult");
+        const char *qjs_str = JS_ToCString(ctx, res);
+        JS_FreeValue(ctx, res);
+        JS_FreeValue(ctx, global_obj);
+
+        if (!qjs_str) {
+            js_std_dump_error(ctx);
+            return NULL;
+        }
+
+        size_t len = strlen(qjs_str);
+        result = malloc(len + 1);
+        if (result)
+        {
+            memcpy(result, qjs_str, len + 1);
+        }
+        JS_FreeCString(ctx, qjs_str);
+    }
+
+    if (!result)
+    {
+        fprintf(stderr, "Error: Failed to convert JS result to C string\n");
+        return NULL;
+    }
+
+    return result;
+    // return NULL;
+}
+
 static JSContext *JS_GetContext(JSRuntime *rt)
 {
     JSContext *ctx = JS_NewContext(rt);
     ctxList_add(ctx);
     if (!ctx)
         return NULL;
-    js_init_module_os(ctx, "os");
-    js_init_module_std(ctx, "std");
+    // js_init_module_os(ctx, "os");
+    // js_init_module_std(ctx, "std");
+    js_std_add_helpers(ctx, 0, NULL);
     js_init_module_http(ctx, "http");
 
-    const char *str =
-        "import * as std from 'std'\n"
-        "import * as http from 'http'\n"
-        "import * as os from 'os'\n"
-        "globalThis.std = std\n"
-        "globalThis.http = http\n"
-        "globalThis.os = os\n"
-        "var console = {};\n"
-        "console.log = function(msg) {\n"
-        "  std.printf(msg + '\\n');\n"
-        "}\n"
-        "globalThis.console = console;\n";
-    JSValue init_compile = JS_Eval(
-        ctx, str, strlen(str), "<input>", JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
-    js_module_set_import_meta(ctx, init_compile, 1, 1);
-    JSValue init_run = JS_EvalFunction(ctx, init_compile);
-    JS_FreeValue(ctx, init_run);
-    
+    // const char *str =
+    //     "import * as std from 'std'\n"
+    //     "import * as http from 'http'\n"
+    //     "import * as os from 'os'\n"
+    //     "globalThis.std = std\n"
+    //     "globalThis.http = http\n"
+    //     "globalThis.os = os\n"
+    //     "var console = {};\n"
+    //     "console.log = function(msg) {\n"
+    //     "  std.printf(msg + '\\n');\n"
+    //     "}\n"
+    //     "globalThis.console = console;\n";
+    // JSValue init_compile = JS_Eval(
+    //     ctx, str, strlen(str), "<input>", JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+    // js_module_set_import_meta(ctx, init_compile, 1, 1);
+    // JSValue init_run = JS_EvalFunction(ctx, init_compile);
+    // JS_FreeValue(ctx, init_run);
+
+    const char *init_http_code =
+        "import * as http from 'http';\n"
+        "globalThis.http = http;\n";
+    JSValue init_result = JS_Eval(ctx, init_http_code, strlen(init_http_code), "<init>", JS_EVAL_TYPE_MODULE);
+    if (JS_IsException(init_result))
+    {
+        js_std_dump_error(ctx);
+    }
+    JS_FreeValue(ctx, init_result);
+    js_std_loop(ctx); // 等待异步模块加载完成，确保 globalThis.http 被赋值
+
     return ctx;
 }
 
@@ -228,6 +380,7 @@ int init_engine()
     }
     ctxList_init();
     rt = JS_NewRuntime();
+    JS_SetMaxStackSize(rt, 1024 * 1024 * 2); // 2MB 栈大小，避免复杂 JS 导致的默认 512KB 栈溢出
     js_std_init_handlers(rt);
     js_std_set_worker_new_context_func(JS_GetContext);
     JS_SetModuleLoaderFunc2(rt, NULL, js_module_loader, js_module_check_attributes, NULL);
@@ -246,7 +399,8 @@ int destroy_engine()
 {
     js_std_free_handlers(rt);
     ctxList_destroyAll();
-    if (rt){
+    if (rt)
+    {
         JS_FreeRuntime(rt);
         rt = NULL;
     }
@@ -294,13 +448,15 @@ char *_request(JSContext *ctx,
 
     // 2. 调用 route 得到 Promise
     JSValue *js_argv = malloc(sizeof(JSValue) * argc);
-    for (int i = 0; i < argc; ++i) {
+    for (int i = 0; i < argc; ++i)
+    {
         js_argv[i] = JS_NewString(ctx, argv[i] ? argv[i] : "");
     }
 
     JSValue p = JS_Call(ctx, func, api, argc, js_argv);
 
-    for (int i = 0; i < argc; ++i) {
+    for (int i = 0; i < argc; ++i)
+    {
         JS_FreeValue(ctx, js_argv[i]);
     }
     free(js_argv);

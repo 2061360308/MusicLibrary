@@ -1,6 +1,19 @@
 /**
  * 劫持axios请求，由外部负责处理请求
  */
+
+let http;
+
+// 兼容 QuickJS/C 注入和http
+if (typeof globalThis !== "undefined" && globalThis.http) {
+  http = globalThis.http;
+} else {
+  // Webpack环境下没有 http，直接用空对象或自定义实现
+  http = {};
+}
+
+console.log("[AxiosHijack] Initialized with http:", JSON.stringify(http));
+
 class AxiosHijack {
   // constructor() {
   //   this.queue = [];
@@ -44,6 +57,7 @@ class AxiosHijack {
   // }
   _request_c(options) {
     return new Promise((resolve, reject) => {
+      // console.log("[request_c] options:", options);
       http.get_request(
         options,
         (res) => {
@@ -54,6 +68,7 @@ class AxiosHijack {
             }
             // 2xx 状态码
             if (res.status >= 200 && res.status < 300) {
+              // console.log("[request_c] successful response:", JSON.stringify(res));
               resolve(res);
             } else {
               // 非 2xx：reject 一个 Error，把响应对象挂载到 response 属性
@@ -68,7 +83,7 @@ class AxiosHijack {
             reject(err);
           }
         },
-        true  // true为开启异步请求
+        true  // true为同步请求
       );
     });
   }

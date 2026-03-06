@@ -2,7 +2,7 @@
 #include "kugou_music_api.h"
 
 #define API_FUNC(name, route)  \
-    static char *name(JSContext *ctx, const char *cookies, const char *params, ProcessEnv *env) {  \
+    static char *name(JSContext *ctx, const char *cookies, const char *params, KugouProcessEnv *env) {  \
         return kugou_request(ctx, route, cookies, params, env);  \
     }
 

@@ -1,0 +1,9 @@
+LIBRARY ncm_music_api
+EXPORTS
+    generate_random_cnIp
+    generate_anonimous_token
+    get_ncm_context
+    ncm_init
+    ncm_destroy
+    ncm_request
+    create_ncm_api

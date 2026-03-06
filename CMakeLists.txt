@@ -1,5 +1,15 @@
 cmake_minimum_required(VERSION 3.21)
-project(kugouC VERSION 1.0.0 LANGUAGES C)
+project(MusicLib VERSION 1.0.0 LANGUAGES C)
+
+if(WIN32)
+    if(MSVC)
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:8388608")
+        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /STACK:8388608")
+    else()
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--stack,8388608")
+        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--stack,8388608")
+    endif()
+endif()
 
 # ========== VCPKG 集成 ==========
 if(DEFINED ENV{VCPKG_ROOT} OR EXISTS("$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"))
@@ -25,6 +35,21 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/lib)
 
+# 从 KuGouMusicApi/package.json 中自动读取版本
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/KuGouMusicApi/package.json" KUGOU_PKG_JSON)
+string(REGEX MATCH "\"version\"[ \t]*:[ \t]*\"([0-9]+)\\.([0-9]+)\\.([0-9]+)\"" _ ${KUGOU_PKG_JSON})
+set(KUGOU_JS_VERSION_MAJOR ${CMAKE_MATCH_1})
+set(KUGOU_JS_VERSION_MINOR ${CMAKE_MATCH_2})
+set(KUGOU_JS_VERSION_PATCH ${CMAKE_MATCH_3})
+set(KUGOU_JS_VERSION "${KUGOU_JS_VERSION_MAJOR}.${KUGOU_JS_VERSION_MINOR}.${KUGOU_JS_VERSION_PATCH}")
+
+# 从 NeteaseCloudMusicApi/package.json 中自动读取版本
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/NeteaseCloudMusicApi/package.json" NCM_PKG_JSON)
+string(REGEX MATCH "\"version\"[ \t]*:[ \t]*\"([0-9]+)\\.([0-9]+)\\.([0-9]+)\"" _ ${NCM_PKG_JSON})
+set(NCM_JS_VERSION_MAJOR ${CMAKE_MATCH_1})
+set(NCM_JS_VERSION_MINOR ${CMAKE_MATCH_2})
+set(NCM_JS_VERSION_PATCH ${CMAKE_MATCH_3})
+set(NCM_JS_VERSION "${NCM_JS_VERSION_MAJOR}.${NCM_JS_VERSION_MINOR}.${NCM_JS_VERSION_PATCH}")
 
 set(ENGINE_LIB_SOURCES
     ${CMAKE_SOURCE_DIR}/src/c/engine.c
@@ -104,6 +129,39 @@ if(WIN32)
     target_compile_definitions(kugou_music_api PUBLIC KUGOU_MUSIC_API_EXPORTS)
 endif()
 
+
+set(NCM_LIB_SOURCES
+    ${CMAKE_SOURCE_DIR}/src/c/ncm/main.c
+    ${CMAKE_SOURCE_DIR}/src/c/ncm/extension.c
+    ${CMAKE_SOURCE_DIR}/bundle/c/ncm_music_api_bundle.c
+)
+
+# ========== NCM STATIC 库 ==========
+add_library(ncm_music_api_static STATIC EXCLUDE_FROM_ALL ${NCM_LIB_SOURCES})
+target_link_libraries(ncm_music_api_static PUBLIC engine)
+target_include_directories(ncm_music_api_static PUBLIC
+    ${CMAKE_SOURCE_DIR}/src/include
+)
+
+# ========== NCM SHARED 库 ==========
+add_library(ncm_music_api SHARED ${NCM_LIB_SOURCES})
+target_link_libraries(ncm_music_api PUBLIC engine)
+set_target_properties(ncm_music_api PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
+)
+target_include_directories(ncm_music_api PUBLIC
+    ${CMAKE_SOURCE_DIR}/src/include
+)
+
+
+if(WIN32)
+    # 设置 Windows 平台特有的属性
+    set_target_properties(ncm_music_api PROPERTIES
+        LINK_FLAGS "/DEF:${CMAKE_SOURCE_DIR}/src/def/ncm_music_api.def"
+    )
+    target_compile_definitions(ncm_music_api PUBLIC NCM_MUSIC_API_EXPORTS)
+endif()
+
 # ========== 测试可执行文件 ==========
 add_executable(test ${CMAKE_SOURCE_DIR}/src/c/test.c)
 # if(WIN32)
@@ -115,7 +173,7 @@ add_executable(test ${CMAKE_SOURCE_DIR}/src/c/test.c)
 target_include_directories(test PUBLIC
     ${CMAKE_SOURCE_DIR}/src/include
 )
-target_link_libraries(test PRIVATE kugou_music_api_static)
+target_link_libraries(test PRIVATE kugou_music_api_static ncm_music_api_static engine)
 
 
 # ========== 生成配置头文件 ==========
@@ -124,14 +182,25 @@ configure_file(
     ${CMAKE_BINARY_DIR}/kugou_music_api_version.h
 )
 
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/include/ncm_music_api_version.h.in
+    ${CMAKE_BINARY_DIR}/ncm_music_api_version.h
+)
+
 # 复制相关文件到lib目录
 add_custom_command(TARGET kugou_music_api POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         ${CMAKE_BINARY_DIR}/kugou_music_api_version.h
         ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}/kugou_music_api_version.h
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_BINARY_DIR}/ncm_music_api_version.h
+        ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}/ncm_music_api_version.h
     COMMAND ${CMAKE_COMMAND} -E copy
         ${CMAKE_SOURCE_DIR}/src/include/kugou_music_api.h
         ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}/kugou_music_api.h
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_SOURCE_DIR}/src/include/ncm_music_api.h
+        ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}/ncm_music_api.h
     COMMAND ${CMAKE_COMMAND} -E copy
         ${CMAKE_SOURCE_DIR}/src/include/engine.h
         ${CMAKE_INCLUDE_OUTPUT_DIRECTORY}/engine.h

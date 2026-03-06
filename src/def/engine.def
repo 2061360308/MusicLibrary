@@ -6,5 +6,7 @@ EXPORTS
     genderByteCodeJs
     load_js_code
     eval_js
+    eval_js_with_result
+    eval_js_with_promise_result
     destroy_engine
     _request
