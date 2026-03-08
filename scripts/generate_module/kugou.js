@@ -184,9 +184,9 @@ function main() {
   fs.writeFileSync(path.join(OUTPUT_C_DEF_DIR, "kugou_music_api.def"), def);
   console.log(`Written: ${OUTPUT_C_DEF_DIR}/kugou_music_api.def`);
 
-  const swig = generateKugouSwig(kugouModules);
-  fs.writeFileSync(path.join(OUTPUT_SWIG_DIR, "kugou_music_api.i"), swig);
-  console.log(`Written: ${OUTPUT_SWIG_DIR}/kugou_music_api.i`);
+  // const swig = generateKugouSwig(kugouModules);
+  // fs.writeFileSync(path.join(OUTPUT_SWIG_DIR, "kugou_music_api.i"), swig);
+  // console.log(`Written: ${OUTPUT_SWIG_DIR}/kugou_music_api.i`);
 
   console.log("Done!");
 }
