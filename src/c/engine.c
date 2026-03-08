@@ -380,7 +380,7 @@ int init_engine()
     }
     ctxList_init();
     rt = JS_NewRuntime();
-    JS_SetMaxStackSize(rt, 1024 * 1024 * 2); // 2MB 栈大小，避免复杂 JS 导致的默认 512KB 栈溢出
+    JS_SetMaxStackSize(rt, 1024 * 800); // 1MB JS调用栈深度限制（软件计数，非系统栈分配）
     js_std_init_handlers(rt);
     js_std_set_worker_new_context_func(JS_GetContext);
     JS_SetModuleLoaderFunc2(rt, NULL, js_module_loader, js_module_check_attributes, NULL);
@@ -406,6 +406,13 @@ int destroy_engine()
     }
     return 0;
 };
+
+void response_free(void *ptr){
+    if (ptr)
+    {
+        free(ptr);
+    }
+}
 
 static char *toMallocString(const char *str)
 {

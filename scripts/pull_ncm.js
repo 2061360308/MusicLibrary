@@ -44,4 +44,16 @@ if (fs.existsSync(packageDirPath)) {
 console.log(`[pull_ncm] 删除临时包 ${tgzPath} ...`);
 fs.unlinkSync(tgzPath);
 
+// 5. 删除 register_anonimous.js 中 path 和 fs 的 require
+const regAnonFile = path.join(apiDirPath, "module", "register_anonimous.js");
+console.log(`[pull_ncm] 处理 ${regAnonFile} ...`);
+if (fs.existsSync(regAnonFile)) {
+  let content = fs.readFileSync(regAnonFile, "utf8");
+  // 删除 const path = require('path') 和 const fs = require('fs')
+  content = content.replace(/^const\s+path\s*=\s*require\(['"]path['"]\).*$/gm, "");
+  content = content.replace(/^const\s+fs\s*=\s*require\(['"]fs['"]\).*$/gm, "");
+  fs.writeFileSync(regAnonFile, content);
+  console.log("[pull_ncm] 已移除 register_anonimous.js 中 path 和 fs 的 require");
+}
+
 console.log("[pull_ncm] 完成！");

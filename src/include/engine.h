@@ -33,6 +33,9 @@ char *eval_js_with_promise_result(JSContext *ctx, char *code, char *filename);
 // 引擎库销毁
 int destroy_engine();
 
+// 释放 response字符串 内存
+void response_free(void *ptr);
+
 // 调用对象的异步方法，等待结果并返回字符串
 char *_request(JSContext *ctx,
                const char *apiName,

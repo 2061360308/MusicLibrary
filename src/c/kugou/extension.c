@@ -1,15 +1,25 @@
 #include "quickjs.h"
 #include "kugou_music_api.h"
 
+#ifdef KUGOU_SWIG_EXPORT
+#define API_FUNC(name, route)  \
+    char *name(JSContext *ctx, const char *cookies, const char *params, KugouProcessEnv *env) {  \
+        return kugou_request(ctx, route, cookies, params, env);  \
+    }
+#define API_FUNC_NOENV(name, route)  \
+    char *name(JSContext *ctx, const char *cookies, const char *params) {  \
+        return kugou_request_simple(ctx, route, cookies, params);  \
+    }
+#else
 #define API_FUNC(name, route)  \
     static char *name(JSContext *ctx, const char *cookies, const char *params, KugouProcessEnv *env) {  \
         return kugou_request(ctx, route, cookies, params, env);  \
     }
-
 #define API_FUNC_NOENV(name, route)  \
     static char *name(JSContext *ctx, const char *cookies, const char *params) {  \
         return kugou_request_simple(ctx, route, cookies, params);  \
     }
+#endif
 
 API_FUNC(yueku_fm, "/yueku/fm")
 API_FUNC_NOENV(yueku_fm_simple, "/yueku/fm")

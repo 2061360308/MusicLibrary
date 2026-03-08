@@ -9,4 +9,5 @@ EXPORTS
     eval_js_with_result
     eval_js_with_promise_result
     destroy_engine
+    response_free
     _request

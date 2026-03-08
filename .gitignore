@@ -20,3 +20,5 @@ vcpkg_installed/
 
 NeteaseCloudMusicApi/
 NeteaseCloudMusicApi-*.tgz
+
+bindings/

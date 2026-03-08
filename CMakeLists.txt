@@ -129,6 +129,26 @@ if(WIN32)
     target_compile_definitions(kugou_music_api PUBLIC KUGOU_MUSIC_API_EXPORTS)
 endif()
 
+# ========== python 库 ==========
+# find_package(Python3 REQUIRED COMPONENTS Development)
+# set(Python3_INCLUDE_DIRS "D:/program/pyenv/pyenv-win/versions/3.11.9/include")
+# set(Python3_LIBRARIES "D:/program/pyenv/pyenv-win/versions/3.11.9/libs/python311.lib")
+# include_directories(${Python3_INCLUDE_DIRS} src/include)
+# add_library(kugou_music_api_python MODULE
+#     ${CMAKE_SOURCE_DIR}/bindings/python/kugou_music_api_wrap.c
+#     ${KUGOU_LIB_SOURCES}
+#     # 其他源文件
+# )
+# target_link_libraries(kugou_music_api_python PUBLIC engine)
+# target_link_libraries(kugou_music_api_python PUBLIC engine ${Python3_LIBRARIES})
+# target_compile_definitions(kugou_music_api_python PRIVATE KUGOU_SWIG_EXPORT)
+
+# set_target_properties(kugou_music_api_python PROPERTIES
+#     OUTPUT_NAME "_kugou_music_api_python"
+#     PREFIX ""  # Windows 下无前缀
+#     SUFFIX ".pyd"  # Windows 下生成 .pyd，Linux 下可用 .so
+# )
+
 
 set(NCM_LIB_SOURCES
     ${CMAKE_SOURCE_DIR}/src/c/ncm/main.c
@@ -161,6 +181,7 @@ if(WIN32)
     )
     target_compile_definitions(ncm_music_api PUBLIC NCM_MUSIC_API_EXPORTS)
 endif()
+
 
 # ========== 测试可执行文件 ==========
 add_executable(test ${CMAKE_SOURCE_DIR}/src/c/test.c)
