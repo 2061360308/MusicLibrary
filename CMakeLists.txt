@@ -32,6 +32,11 @@ add_subdirectory(quickjs)
 # 为静态库添加 -fPIC 选项
 set_target_properties(qjs qjs-libc PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
+# 抑制 QuickJS 的类型转换警告
+target_compile_options(qjs PRIVATE -Wno-shorten-64-to-32)
+target_compile_options(qjs-libc PRIVATE -Wno-shorten-64-to-32)
+target_compile_options(qjsc PRIVATE -Wno-shorten-64-to-32)
+
 # 文件输出目录绑定
 set(CMAKE_INCLUDE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/include) # 头文件输出目录
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/bin)
@@ -73,8 +78,9 @@ target_link_libraries(engine_config INTERFACE qjs qjs-libc)
 if(UNIX)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(CURL REQUIRED libcurl)
-    target_include_directories(engine_config INTERFACE ${CURL_INCLUDE_DIRS})
-    target_link_libraries(engine_config INTERFACE ${CURL_LIBRARIES})
+    pkg_check_modules(LIBUV REQUIRED libuv)
+    target_include_directories(engine_config INTERFACE ${CURL_INCLUDE_DIRS} ${LIBUV_INCLUDE_DIRS})
+    target_link_libraries(engine_config INTERFACE ${CURL_LIBRARIES} ${LIBUV_LIBRARIES})
 else()
     find_package(CURL CONFIG REQUIRED)
     target_link_libraries(engine_config INTERFACE CURL::libcurl)
