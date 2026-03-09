@@ -9,7 +9,7 @@
 
 extern const char kugou_music_api_bundle_code[];
 
-KugouProcessEnv globalEnv;
+static KugouProcessEnv globalEnv;
 
 // 存储编译后的字节码，方便多次创建上下文时直接加载执行
 ByteCodeJs *kugou_music_api_bytecode = NULL;

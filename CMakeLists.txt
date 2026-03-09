@@ -29,6 +29,9 @@ endif()
 # set(BUILD_SHARED_LIBS ON)
 add_subdirectory(quickjs)
 
+# 为静态库添加 -fPIC 选项
+set_target_properties(qjs qjs-libc PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 # 文件输出目录绑定
 set(CMAKE_INCLUDE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/include) # 头文件输出目录
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/bin)
@@ -229,12 +232,14 @@ add_custom_command(TARGET kugou_music_api POST_BUILD
 )
 
 # 删除exp文件
-add_custom_command(TARGET kugou_music_api POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E sleep 1
-    COMMAND if exist *.exp (del /q *.exp)
-    COMMENT "Clean up .exp files"
-    WORKING_DIRECTORY ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}
-)
+if(WIN32)
+    add_custom_command(TARGET kugou_music_api POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E sleep 1
+        COMMAND if exist *.exp (del /q *.exp)
+        COMMENT "Clean up .exp files"
+        WORKING_DIRECTORY ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}
+    )
+endif()
 
 # ========== 安装规则 ==========
 include(GNUInstallDirs)

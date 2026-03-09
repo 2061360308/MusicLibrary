@@ -9,7 +9,7 @@
 
 extern const char ncm_music_api_bundle_code[];
 
-NcmProcessEnv globalEnv;
+static NcmProcessEnv globalEnv;
 
 ByteCodeJs *ncm_music_api_bytecode = NULL;
 

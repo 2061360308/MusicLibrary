@@ -1,0 +1,69 @@
+name: Linux x64 Build
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        architecture: [x64]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          architecture: ${{ matrix.architecture }}
+          cache: "pnpm"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            xz-utils \
+            cmake \
+            pkg-config \
+            libcurl4-openssl-dev \
+            libuv1-dev
+
+      - name: Pull NCM project submodule
+        run: node scripts/pull_ncm.js
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build JavaScript bundle
+        run: npx webpack
+
+      - name: Configure CMake
+        run: cmake --preset linux-x64-gcc
+
+      - name: Build qjsc target
+        run: cmake --build build/linux/x64/linux-x64-gcc --config Release --target qjsc
+
+      - name: Build main target
+        run: cmake --build build/linux/x64/linux-x64-gcc --config Release -j$(nproc)
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.architecture }}-release
+          path: |
+            build/linux/x64/linux-x64-gcc/Release/lib/**
+            build/linux/x64/linux-x64-gcc/Release/include/*
