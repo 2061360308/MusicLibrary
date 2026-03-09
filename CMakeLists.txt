@@ -33,9 +33,15 @@ add_subdirectory(quickjs)
 set_target_properties(qjs qjs-libc PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # 抑制 QuickJS 的类型转换警告
-target_compile_options(qjs PRIVATE -Wno-shorten-64-to-32)
-target_compile_options(qjs-libc PRIVATE -Wno-shorten-64-to-32)
-target_compile_options(qjsc PRIVATE -Wno-shorten-64-to-32)
+if(MSVC)
+    target_compile_options(qjs PRIVATE /wd4242 /wd4244 /wd4267)
+    target_compile_options(qjs-libc PRIVATE /wd4242 /wd4244 /wd4267)
+    target_compile_options(qjsc PRIVATE /wd4242 /wd4244 /wd4267)
+else()
+    target_compile_options(qjs PRIVATE -Wno-shorten-64-to-32)
+    target_compile_options(qjs-libc PRIVATE -Wno-shorten-64-to-32)
+    target_compile_options(qjsc PRIVATE -Wno-shorten-64-to-32)
+endif()
 
 # 文件输出目录绑定
 set(CMAKE_INCLUDE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>/include) # 头文件输出目录
