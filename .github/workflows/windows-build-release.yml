@@ -1,4 +1,4 @@
-name: Build Windows Libraries and Create Release
+name: Build Libraries and Create Release
 
 on:
   push:
@@ -11,15 +11,27 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-latest, windows-11-arm]
-        architecture: [x64, x86, arm64]
-        exclude:
+        include:
           - os: windows-latest
-            architecture: arm64
-          - os: windows-11-arm
-            architecture: x86
-          - os: windows-11-arm
+            platform: windows
             architecture: x64
+            preset: windows-x64-vcpkg
+          - os: windows-latest
+            platform: windows
+            architecture: x86
+            preset: windows-x86-vcpkg
+          - os: windows-11-arm
+            platform: windows
+            architecture: arm64
+            preset: windows-arm64-vcpkg
+          - os: ubuntu-latest
+            platform: linux
+            architecture: x64
+            preset: linux-x64-gcc
+          - os: ubuntu-24.04-arm
+            platform: linux
+            architecture: arm64
+            preset: linux-arm64-gcc
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -47,40 +59,47 @@ jobs:
       - name: Build JavaScript bundle
         run: npx webpack
 
-      - name: Setup vcpkg
+      - name: Install system dependencies (Linux)
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            xz-utils \
+            cmake \
+            pkg-config \
+            libcurl4-openssl-dev \
+            libuv1-dev
+
+      - name: Setup vcpkg (Windows)
+        if: matrix.platform == 'windows'
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgDirectory: ${{ github.workspace }}/vcpkg
 
-      - name: Install vcpkg dependencies
-        if: matrix.architecture == 'x86'
+      - name: Install vcpkg dependencies (Windows)
+        if: matrix.platform == 'windows' && matrix.architecture == 'x86'
         run: vcpkg install --triplet x86-windows
         env:
           VCPKG_ROOT: ${{ github.workspace }}/vcpkg
 
-      - name: Debug environment
-        run: |
-          echo "VCPKG_ROOT=${{ github.workspace }}/vcpkg"
-          ls ${{ github.workspace }}
-
       - name: Configure CMake
-        run: cmake --preset windows-${{ matrix.architecture }}-vcpkg
+        run: cmake --preset ${{ matrix.preset }}
         env:
           VCPKG_ROOT: ${{ github.workspace }}/vcpkg
 
       - name: Build qjsc target
-        run: cmake --build --preset windows-${{ matrix.architecture }}-vcpkg-Release --target qjsc
+        run: cmake --build --preset ${{ matrix.preset }}-Release --target qjsc
 
       - name: Build main target
-        run: cmake --build --preset windows-${{ matrix.architecture }}-vcpkg-Release
+        run: cmake --build --preset ${{ matrix.preset }}-Release${{ matrix.platform == 'linux' && ' -j$(nproc)' || '' }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: windows-${{ matrix.architecture }}-release
+          name: ${{ matrix.platform }}-${{ matrix.architecture }}-release
           path: |
-            build/windows/${{ matrix.architecture }}/windows-${{ matrix.architecture }}-vcpkg/Release/lib/**
-            build/windows/${{ matrix.architecture }}/windows-${{ matrix.architecture }}-vcpkg/Release/include/*
+            build/${{ matrix.platform }}/${{ matrix.architecture }}/${{ matrix.preset }}/Release/lib/**
+            build/${{ matrix.platform }}/${{ matrix.architecture }}/${{ matrix.preset }}/Release/include/*
 
   release:
     needs: build
@@ -89,39 +108,57 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download x64 artifacts
+      - name: Download Windows x64 artifacts
         uses: actions/download-artifact@v4
         with:
           name: windows-x64-release
-          path: artifacts/x64
+          path: artifacts/windows-x64
 
-      - name: Download x86 artifacts
+      - name: Download Windows x86 artifacts
         uses: actions/download-artifact@v4
         with:
           name: windows-x86-release
-          path: artifacts/x86
+          path: artifacts/windows-x86
 
-      - name: Download arm64 artifacts
+      - name: Download Windows arm64 artifacts
         uses: actions/download-artifact@v4
         with:
           name: windows-arm64-release
-          path: artifacts/arm64
+          path: artifacts/windows-arm64
 
-      - name: Zip x64 artifacts
-        run: cd artifacts/x64 && zip -r ../windows-x64.zip ./*
+      - name: Download Linux x64 artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-x64-release
+          path: artifacts/linux-x64
 
-      - name: Zip x86 artifacts
-        run: cd artifacts/x86 && zip -r ../windows-x86.zip ./*
+      - name: Download Linux arm64 artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-arm64-release
+          path: artifacts/linux-arm64
 
-      - name: Zip arm64 artifacts
-        run: cd artifacts/arm64 && zip -r ../windows-arm64.zip ./*
+      - name: Zip Windows x64 artifacts
+        run: cd artifacts/windows-x64 && zip -r ../windows-x64.zip ./*
+
+      - name: Zip Windows x86 artifacts
+        run: cd artifacts/windows-x86 && zip -r ../windows-x86.zip ./*
+
+      - name: Zip Windows arm64 artifacts
+        run: cd artifacts/windows-arm64 && zip -r ../windows-arm64.zip ./*
+
+      - name: Zip Linux x64 artifacts
+        run: cd artifacts/linux-x64 && zip -r ../linux-x64.zip ./*
+
+      - name: Zip Linux arm64 artifacts
+        run: cd artifacts/linux-arm64 && zip -r ../linux-arm64.zip ./*
 
       - name: Generate release body
         run: |
           cat << 'EOF' > release_body.md
-          ## Windows Libraries
+          ## Pre-built Libraries
 
-          Pre-built libraries for Windows platforms:
+          ### Windows Libraries
 
           | Platform | Description |
           |----------|-------------|
@@ -129,8 +166,15 @@ jobs:
           | windows-x86 | 32-bit Windows (Windows 10/11 x86) |
           | windows-arm64 | Windows on ARM (Windows 11 ARM) |
 
+          ### Linux Libraries
+
+          | Platform | Description |
+          |----------|-------------|
+          | linux-x64 | 64-bit Linux (Ubuntu 20.04+) |
+          | linux-arm64 | ARM64 Linux (Ubuntu 24.04 ARM) |
+
           Each platform zip contains:
-          - `lib/` - Compiled library files (.lib, .dll)
+          - `lib/` - Compiled library files (.lib, .dll, .so)
           - `include/` - Header files
           EOF
           cat release_body.md

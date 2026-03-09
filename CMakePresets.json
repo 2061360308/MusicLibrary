@@ -86,6 +86,31 @@
         "CMAKE_CXX_FLAGS": "-O2 -Wall",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
+    },
+    {
+      "name": "macos-x64-clang",
+      "displayName": "macOS x64 with Clang",
+      "description": "Configure using Clang on macOS (x64)",
+      "generator": "Xcode",
+      "binaryDir": "${sourceDir}/build/macos/x64/${presetName}",
+      "cacheVariables": {
+        "CMAKE_C_FLAGS": "-O2 -Wall",
+        "CMAKE_CXX_FLAGS": "-O2 -Wall",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "macos-arm64-clang",
+      "displayName": "macOS arm64 with Clang",
+      "description": "Configure using Clang on macOS (arm64)",
+      "generator": "Xcode",
+      "binaryDir": "${sourceDir}/build/macos/arm64/${presetName}",
+      "cacheVariables": {
+        "CMAKE_OSX_ARCHITECTURES": "arm64",
+        "CMAKE_C_FLAGS": "-O2 -Wall",
+        "CMAKE_CXX_FLAGS": "-O2 -Wall",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -122,6 +147,16 @@
     {
       "name": "linux-arm64-gcc-Release",
       "configurePreset": "linux-arm64-gcc",
+      "configuration": "Release"
+    },
+    {
+      "name": "macos-x64-clang-Release",
+      "configurePreset": "macos-x64-clang",
+      "configuration": "Release"
+    },
+    {
+      "name": "macos-arm64-clang-Release",
+      "configurePreset": "macos-arm64-clang",
       "configuration": "Release"
     }
   ],
