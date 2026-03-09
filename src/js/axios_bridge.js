@@ -12,8 +12,6 @@ if (typeof globalThis !== "undefined" && globalThis.http) {
   http = {};
 }
 
-console.log("[AxiosHijack] Initialized with http:", JSON.stringify(http));
-
 class AxiosHijack {
   // constructor() {
   //   this.queue = [];
@@ -66,9 +64,18 @@ class AxiosHijack {
               reject(new Error("响应为空"));
               return;
             }
+
+            // 自动解析 JSON 响应
+            if (res && typeof res.data === "string") {
+              try {
+                res.data = JSON.parse(res.data);
+              } catch (e) {
+                // 解析失败则保持原样
+              }
+            }
+
             // 2xx 状态码
             if (res.status >= 200 && res.status < 300) {
-              // console.log("[request_c] successful response:", JSON.stringify(res));
               resolve(res);
             } else {
               // 非 2xx：reject 一个 Error，把响应对象挂载到 response 属性
@@ -83,7 +90,7 @@ class AxiosHijack {
             reject(err);
           }
         },
-        true  // true为同步请求
+        true // true为同步请求
       );
     });
   }

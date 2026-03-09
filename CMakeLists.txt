@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(MusicLib VERSION 1.0.0 LANGUAGES C)
+project(MusicLibrary VERSION 1.0.0 LANGUAGES C)
 
 if(WIN32)
     if(MSVC)
