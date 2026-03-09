@@ -1,4 +1,4 @@
-name: Linux x64 Build
+name: Linux Build
 
 on:
   push:
@@ -12,7 +12,7 @@ jobs:
 
     strategy:
       matrix:
-        architecture: [x64]
+        architecture: [x86]
 
     steps:
       - name: Checkout repository
@@ -41,6 +41,14 @@ jobs:
             pkg-config \
             libcurl4-openssl-dev \
             libuv1-dev
+          # Install 32-bit libraries for x86 builds
+          if [ "${{ matrix.architecture }}" == "x86" ]; then
+            sudo apt-get install -y \
+              gcc-multilib \
+              g++-multilib \
+              libcurl4-openssl-dev:i386 \
+              libuv1-dev:i386
+          fi
 
       - name: Pull NCM project submodule
         run: node scripts/pull_ncm.js
@@ -52,18 +60,18 @@ jobs:
         run: npx webpack
 
       - name: Configure CMake
-        run: cmake --preset linux-x64-gcc
+        run: cmake --preset linux-${{ matrix.architecture }}-gcc
 
       - name: Build qjsc target
-        run: cmake --build build/linux/x64/linux-x64-gcc --config Release --target qjsc
+        run: cmake --build --preset linux-${{ matrix.architecture }}-gcc-Release --target qjsc
 
       - name: Build main target
-        run: cmake --build build/linux/x64/linux-x64-gcc --config Release -j$(nproc)
+        run: cmake --build --preset linux-${{ matrix.architecture }}-gcc-Release -j$(nproc)
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: linux-${{ matrix.architecture }}-release
           path: |
-            build/linux/x64/linux-x64-gcc/Release/lib/**
-            build/linux/x64/linux-x64-gcc/Release/include/*
+            build/linux/${{ matrix.architecture }}/linux-${{ matrix.architecture }}-gcc/Release/lib/**
+            build/linux/${{ matrix.architecture }}/linux-${{ matrix.architecture }}-gcc/Release/include/*

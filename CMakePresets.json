@@ -50,22 +50,35 @@
       "generator": "Unix Makefiles",
       "binaryDir": "${sourceDir}/build/linux/x64/${presetName}",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_C_FLAGS": "-O2 -Wall",
-        "CMAKE_CXX_FLAGS": "-O2 -Wall",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+        "CMAKE_CXX_FLAGS": "-O2 -Wall"
       }
     },
     {
-      "name": "linux-x64-gcc-debug",
-      "displayName": "Linux x64 with GCC (Debug)",
-      "description": "Configure using GCC on Linux x64 (Debug)",
-      "inherits": "linux-x64-gcc",
-      "binaryDir": "${sourceDir}/build/linux/x64/${presetName}",
+      "name": "linux-x86-gcc",
+      "displayName": "Linux x86 with GCC",
+      "description": "Configure using GCC on Linux (x86)",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/linux/x86/${presetName}",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_C_FLAGS": "-g -Wall -Wextra",
-        "CMAKE_CXX_FLAGS": "-g -Wall -Wextra"
+        "CMAKE_C_FLAGS": "-m32 -O2 -Wall",
+        "CMAKE_CXX_FLAGS": "-m32 -O2 -Wall"
+      },
+      "environment": {
+        "CFLAGS": "-m32",
+        "CXXFLAGS": "-m32",
+        "LDFLAGS": "-m32"
+      }
+    },
+    {
+      "name": "linux-arm64-gcc",
+      "displayName": "Linux arm64 with GCC",
+      "description": "Configure using GCC on Linux (arm64)",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/linux/arm64/${presetName}",
+      "cacheVariables": {
+        "CMAKE_C_FLAGS": "-O2 -Wall",
+        "CMAKE_CXX_FLAGS": "-O2 -Wall"
       }
     }
   ],
@@ -88,6 +101,26 @@
     {
       "name": "windows-arm64-vcpkg-Release",
       "configurePreset": "windows-arm64-vcpkg",
+      "configuration": "Release"
+    },
+    {
+      "name": "linux-x64-gcc-Release",
+      "configurePreset": "linux-x64-gcc",
+      "configuration": "Release"
+    },
+    {
+      "name": "linux-x64-gcc-Debug",
+      "configurePreset": "linux-x64-gcc",
+      "configuration": "Debug"
+    },
+    {
+      "name": "linux-x86-gcc-Release",
+      "configurePreset": "linux-x86-gcc",
+      "configuration": "Release"
+    },
+    {
+      "name": "linux-arm64-gcc-Release",
+      "configurePreset": "linux-arm64-gcc",
       "configuration": "Release"
     }
   ],
