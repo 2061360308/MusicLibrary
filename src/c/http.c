@@ -2,20 +2,29 @@
 #include "curl/curl.h"
 #include "quickjs.h"
 #include "quickjs-libc.h"
+
+#ifdef USE_LIBUV
 #include "uv.h"
+#endif
+
 #include "cutils.h"
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
 
+#ifdef USE_LIBUV
 uv_loop_t *loop;
+#endif
 
 typedef struct _http_ctx_t
 {
   JSContext *ctx;
   JSValue func;   // JS 回调函数
   JSValue config; // 原始配置对象
+
+  #ifdef USE_LIBUV
   uv_timer_t handle;
+  #endif
 
   char *url;                      // 完整 URL
   char *method;                   // HTTP 方法
@@ -73,7 +82,11 @@ static JSValue js_http_get_request(JSContext *ctx, JSValueConst this_val, int ar
 static char *build_query_string(JSContext *ctx, JSValueConst obj);
 static struct curl_slist *build_headers_list(JSContext *ctx, JSValueConst headers_obj);
 static void curl_main(http_ctx_t *hctx);
+
+#ifdef USE_LIBUV
 static void js_http_get_request_async(uv_timer_t *handle);
+#endif
+
 static size_t header_write_callback(char *buffer, size_t size, size_t nitems, void *userdata);
 static size_t readData(void *ptr, size_t size, size_t nmemb, void *stream);
 static void build_and_call_js_callback(http_ctx_t *hctx, CURLcode res);
@@ -118,12 +131,14 @@ js_http_get_request                        // JS 端触发
                               └── curl_main
 */
 
+#ifdef USE_LIBUV
 // 异步调用包装
 static void js_http_get_request_async(uv_timer_t *handle)
 {
   http_ctx_t *data = (http_ctx_t *)handle->data;
   curl_main(data);
 }
+#endif
 
 // 从 JS 对象构建 querystring（key1=val1&key2=val2），未做 URL 编码
 static char *build_query_string(JSContext *ctx, JSValueConst obj)

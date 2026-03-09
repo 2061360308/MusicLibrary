@@ -8,6 +8,7 @@ on:
 
 jobs:
   build:
+    timeout-minutes: 30
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -44,8 +45,7 @@ jobs:
           brew install \
             cmake \
             pkg-config \
-            curl \
-            libuv
+            curl
 
       - name: Pull NCM project submodule
         run: node scripts/pull_ncm.js
