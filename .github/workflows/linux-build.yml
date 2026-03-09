@@ -29,7 +29,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          architecture: ${{ matrix.architecture }}
+          architecture: ${{ matrix.architecture == 'x86' && 'x64' || matrix.architecture }}
           cache: "pnpm"
 
       - name: Install system dependencies
