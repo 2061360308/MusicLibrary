@@ -8,6 +8,7 @@ on:
 
 jobs:
   build:
+    timeout-minutes: 30
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -101,7 +102,7 @@ jobs:
       - name: Configure CMake
         run: cmake --preset ${{ matrix.preset }}
         env:
-          VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+          VCPKG_ROOT: ${{ matrix.platform == 'windows' && github.workspace + '/vcpkg' || '' }}
 
       - name: Build qjsc target
         run: cmake --build --preset ${{ matrix.preset }}-Release --target qjsc
