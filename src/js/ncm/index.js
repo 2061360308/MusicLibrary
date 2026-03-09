@@ -133,6 +133,13 @@ NeteaseCloudMusicApiApi.prototype.route = async function (
   _cookie,
   args
 ) {
+  /**
+   * _cookie 和 args 都是json字符串，需要解析成对象
+   */
+  let req = {};
+  let res = new Res();
+  req.cookies = {};
+  req.ip = "192.168.5.7"; // Todo
   let params = {};
   try {
     params = JSON.parse(args || "{}");
@@ -140,50 +147,21 @@ NeteaseCloudMusicApiApi.prototype.route = async function (
     // 如果解析失败，保持原样
     console.warn("Failed to parse params, using empty object:", args);
   }
+
+  try {
+    req.cookies = JSON.parse(_cookie || "{}");
+  } catch (e) {
+    console.warn("Failed to parse cookies, using empty object:", args);
+  }
   console.log(
     `[ROUTE] route: ${route}, cookie: ${_cookie}, params: ${JSON.stringify(
       params
     )}`
   );
-  // args 是键值对形式，如 route, cookie, 'a', 1, 'b', 2
-  for (let i = 0; i < args.length; i += 2) {
-    if (typeof args[i] === "string") {
-      params[args[i]] = args[i + 1];
-    }
-  }
-
+ 
   const module = routeModuleMap[route];
   if (typeof module === "function") {
-    // 如果传入 cookie 是字符串，转换为对象
-    let req = {};
-    let res = new Res();
-    req.cookies = {};
     req.ip = "192.168.5.7"; // Todo
-
-    // 处理字符串cookie
-    if (typeof _cookie === "string") {
-      _cookie
-        .trim()
-        .split(/;\s+/g)
-        .forEach((pair) => {
-          const crack = pair.indexOf("=");
-          if (crack < 1 || crack === pair.length - 1) {
-            return;
-          }
-          // req.cookies[decode(pair.slice(0, crack)).trim()] = decode(pair.slice(crack + 1)).trim();
-          const rawKey = pair.slice(0, crack);
-          const rawVal = pair.slice(crack + 1);
-          const key = decodeURIComponent(rawKey).trim();
-          const val = decodeURIComponent(rawVal).trim();
-          req.cookies[key] = val;
-        });
-    } else if (typeof _cookie === "object" && _cookie !== null) {
-      req.cookies = _cookie;
-    }
-
-    const cookies = req.cookies || {};
-
-    req.cookies = cookies;
 
     const query = Object.assign({}, { cookie: req.cookies }, params, {
       body: {},
