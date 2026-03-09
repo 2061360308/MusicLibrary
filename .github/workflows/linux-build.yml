@@ -8,11 +8,17 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
 
     strategy:
       matrix:
-        architecture: [x86]
+        os: [ubuntu-latest, ubuntu-24.04-arm]
+        architecture: [x64, arm64]
+        exclude:
+          - os: ubuntu-latest
+            architecture: arm64
+          - os: ubuntu-24.04-arm
+            architecture: x64
 
     steps:
       - name: Checkout repository
@@ -29,7 +35,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          architecture: ${{ matrix.architecture == 'x86' && 'x64' || matrix.architecture }}
+          architecture: ${{ matrix.architecture }}
           cache: "pnpm"
 
       - name: Install system dependencies
@@ -41,14 +47,6 @@ jobs:
             pkg-config \
             libcurl4-openssl-dev \
             libuv1-dev
-          # Install 32-bit libraries for x86 builds
-          if [ "${{ matrix.architecture }}" == "x86" ]; then
-            sudo apt-get install -y \
-              gcc-multilib \
-              g++-multilib \
-              libcurl4-openssl-dev:i386 \
-              libuv1-dev:i386
-          fi
 
       - name: Pull NCM project submodule
         run: node scripts/pull_ncm.js

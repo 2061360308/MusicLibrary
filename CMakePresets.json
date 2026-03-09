@@ -50,8 +50,10 @@
       "generator": "Unix Makefiles",
       "binaryDir": "${sourceDir}/build/linux/x64/${presetName}",
       "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_C_FLAGS": "-O2 -Wall",
-        "CMAKE_CXX_FLAGS": "-O2 -Wall"
+        "CMAKE_CXX_FLAGS": "-O2 -Wall",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
     },
     {
@@ -61,8 +63,10 @@
       "generator": "Unix Makefiles",
       "binaryDir": "${sourceDir}/build/linux/x86/${presetName}",
       "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_C_FLAGS": "-m32 -O2 -Wall",
-        "CMAKE_CXX_FLAGS": "-m32 -O2 -Wall"
+        "CMAKE_CXX_FLAGS": "-m32 -O2 -Wall",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       },
       "environment": {
         "CFLAGS": "-m32",
@@ -77,8 +81,10 @@
       "generator": "Unix Makefiles",
       "binaryDir": "${sourceDir}/build/linux/arm64/${presetName}",
       "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_C_FLAGS": "-O2 -Wall",
-        "CMAKE_CXX_FLAGS": "-O2 -Wall"
+        "CMAKE_CXX_FLAGS": "-O2 -Wall",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
     }
   ],
@@ -107,11 +113,6 @@
       "name": "linux-x64-gcc-Release",
       "configurePreset": "linux-x64-gcc",
       "configuration": "Release"
-    },
-    {
-      "name": "linux-x64-gcc-Debug",
-      "configurePreset": "linux-x64-gcc",
-      "configuration": "Debug"
     },
     {
       "name": "linux-x86-gcc-Release",
