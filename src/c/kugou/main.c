@@ -41,6 +41,10 @@ static void registerEnv(JSContext *ctx, const char *platform, const char *guid, 
 JSContext *get_kugou_context()
 {
     JSContext *ctx = _get_context();
+
+    // 尝试先将process.env的值注册到JS环境中，这样在编译和执行kugou_music_api_bundle_code时就能直接使用这些环境变量
+     registerEnv(ctx, globalEnv.platform, globalEnv.KUGOU_API_GUID, globalEnv.KUGOU_API_DEV, globalEnv.KUGOU_API_MAC);
+
     if (kugou_music_api_bytecode)
     {
         int result = load_js_code(ctx, kugou_music_api_bytecode);

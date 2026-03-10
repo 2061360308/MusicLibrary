@@ -55,7 +55,7 @@ class AxiosHijack {
   // }
   _request_c(options) {
     return new Promise((resolve, reject) => {
-      // console.log("[request_c] options:", options);
+      // console.log("[request_c] options:", JSON.stringify(options));
       http.get_request(
         options,
         (res) => {

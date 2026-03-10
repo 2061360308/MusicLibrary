@@ -79,6 +79,8 @@ static void http_ctx_free(http_ctx_t *ctx)
 static int js_http_init(JSContext *ctx, JSModuleDef *m);
 JSModuleDef *js_init_module_http(JSContext *ctx, const char *module_name);
 static JSValue js_http_get_request(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv);
+static int is_unreserved_char(unsigned char c);
+static char *url_encode_component(const char *src);
 static char *build_query_string(JSContext *ctx, JSValueConst obj);
 static struct curl_slist *build_headers_list(JSContext *ctx, JSValueConst headers_obj);
 static void curl_main(http_ctx_t *hctx);
@@ -140,7 +142,48 @@ static void js_http_get_request_async(uv_timer_t *handle)
 }
 #endif
 
-// 从 JS 对象构建 querystring（key1=val1&key2=val2），未做 URL 编码
+// RFC3986 未保留字符可直接保留，其余字符需要百分号编码
+// 判断字符是否属于 URL 未保留字符
+static int is_unreserved_char(unsigned char c)
+{
+  return (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~');
+}
+
+// 按 RFC3986 对字符串做 URL 组件编码（非未保留字符转为 %XX）
+// 将参数值编码为 URL 安全字符串，避免 &, ?, = 等字符破坏 query 结构
+static char *url_encode_component(const char *src)
+{
+  if (!src)
+    return NULL;
+
+  size_t src_len = strlen(src);
+  size_t out_cap = src_len * 3 + 1;
+  char *out = (char *)malloc(out_cap);
+  if (!out)
+    return NULL;
+
+  size_t j = 0;
+  for (size_t i = 0; i < src_len; i++)
+  {
+    unsigned char c = (unsigned char)src[i];
+    if (is_unreserved_char(c))
+    {
+      out[j++] = (char)c;
+    }
+    else
+    {
+      static const char hex[] = "0123456789ABCDEF";
+      out[j++] = '%';
+      out[j++] = hex[(c >> 4) & 0x0F];
+      out[j++] = hex[c & 0x0F];
+    }
+  }
+
+  out[j] = '\0';
+  return out;
+}
+
+// 从 JS 对象构建 querystring（key1=val1&key2=val2），对 key/value 执行 URL 编码
 static char *build_query_string(JSContext *ctx, JSValueConst obj)
 {
   if (!JS_IsObject(obj))
@@ -163,7 +206,21 @@ static char *build_query_string(JSContext *ctx, JSValueConst obj)
 
     if (key && val)
     {
-      size_t need = strlen(key) + strlen(val) + 2; // '=' 或 '&'
+      char *enc_key = url_encode_component(key);
+      char *enc_val = url_encode_component(val);
+
+      if (!enc_key || !enc_val)
+      {
+        free(enc_key);
+        free(enc_val);
+        JS_FreeCString(ctx, key);
+        JS_FreeCString(ctx, val);
+        JS_FreeValue(ctx, v);
+        JS_FreeAtom(ctx, atom);
+        break;
+      }
+
+      size_t need = strlen(enc_key) + strlen(enc_val) + 2; // '=' 或 '&'
       if (cap < size + need + 1)
       {
         size_t new_cap = cap == 0 ? 128 : cap * 2;
@@ -172,6 +229,8 @@ static char *build_query_string(JSContext *ctx, JSValueConst obj)
         char *nb = (char *)realloc(buf, new_cap);
         if (!nb)
         {
+          free(enc_key);
+          free(enc_val);
           JS_FreeCString(ctx, key);
           JS_FreeCString(ctx, val);
           JS_FreeValue(ctx, v);
@@ -183,12 +242,15 @@ static char *build_query_string(JSContext *ctx, JSValueConst obj)
       }
       if (size > 0)
         buf[size++] = '&';
-      memcpy(buf + size, key, strlen(key));
-      size += strlen(key);
+      memcpy(buf + size, enc_key, strlen(enc_key));
+      size += strlen(enc_key);
       buf[size++] = '=';
-      memcpy(buf + size, val, strlen(val));
-      size += strlen(val);
+      memcpy(buf + size, enc_val, strlen(enc_val));
+      size += strlen(enc_val);
       buf[size] = '\0';
+
+      free(enc_key);
+      free(enc_val);
     }
 
     JS_FreeCString(ctx, key);
@@ -462,6 +524,8 @@ static void curl_main(http_ctx_t *hctx)
 
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_DEFAULT_PROTOCOL, "https");
+    // curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+    // curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
     // 自动解压 gzip / deflate / br
@@ -536,7 +600,7 @@ static void curl_main(http_ctx_t *hctx)
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, hctx);
     curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, header_write_callback);
     curl_easy_setopt(curl, CURLOPT_HEADERDATA, hctx);
-    // curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+    // curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);  // 启用调试输出
 
     res = curl_easy_perform(curl);
     if (res != CURLE_OK)
