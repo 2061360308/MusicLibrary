@@ -4,6 +4,8 @@
 
 补充：目前已集成网易云和酷狗两家的接口
 
+**python**语言，**dart**语言绑定在[**NeteaseCloudMusic_PythonSDK**](https://github.com/2061360308/NeteaseCloudMusic_PythonSDK)
+
 ## 功能概述
 
 MusicLibrary 提供了一个 C 语言接口，用于调用 KuGouMusicApi、NeteaseCloudMusicApi 的功能。通过 QuickJS 引擎，开发者可以轻松地在 C 程序中运行 JavaScript 代码，完成诸如歌单管理、音乐搜索、推荐等功能。
